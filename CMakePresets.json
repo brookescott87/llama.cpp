@@ -1,0 +1,27 @@
+{
+    "version": 8,
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 28,
+        "patch": 0
+    },
+    "configurePresets": [
+        {
+            "name": "default",
+            "displayName": "Default",
+            "generator": "Visual Studio 17 2022",
+            "description": "Default Configuration for the Quantization Toaster",
+            "cacheVariables": {
+                "CMAKE_INSTALL_PREFIX": "C:/Apps/Toaster",
+                "LLAMA_AVX2": "TRUE",
+                "LLAMA_CUDA": "TRUE"
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "default",
+            "configurePreset": "default"
+        }
+    ]
+}
