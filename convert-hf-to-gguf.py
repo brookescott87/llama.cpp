@@ -23,7 +23,7 @@ if 'NO_LOCAL_GGUF' not in os.environ:
     sys.path.insert(1, str(Path(__file__).parent / 'gguf-py'))
 import gguf
 
-from convert import HfVocab
+from convert import LlamaHfVocab, permute
 
 
 ###### MODEL DEFINITIONS ######
@@ -93,31 +93,42 @@ class Model(ABC):
 
         if (n_ctx := self.find_hparam(["max_position_embeddings", "n_ctx"], optional=True)) is not None:
             self.gguf_writer.add_context_length(n_ctx)
+            print(f"gguf: context length = {n_ctx}")
 
         n_embd = self.find_hparam(["hidden_size", "n_embd"])
         self.gguf_writer.add_embedding_length(n_embd)
+        print(f"gguf: embedding length = {n_embd}")
 
         if (n_ff := self.find_hparam(["intermediate_size", "n_inner"], optional=True)) is not None:
             self.gguf_writer.add_feed_forward_length(n_ff)
+            print(f"gguf: feed forward length = {n_ff}")
 
         n_head = self.find_hparam(["num_attention_heads", "n_head"])
         self.gguf_writer.add_head_count(n_head)
+        print(f"gguf: head count = {n_head}")
 
         if (n_head_kv := self.hparams.get("num_key_value_heads")) is not None:
             self.gguf_writer.add_head_count_kv(n_head_kv)
+            print(f"gguf: key-value head count = {n_head_kv}")
 
         if (rope_theta := self.hparams.get("rope_theta")) is not None:
             self.gguf_writer.add_rope_freq_base(rope_theta)
+            print(f"gguf: rope theta = {rope_theta}")
         if (f_rms_eps := self.hparams.get("rms_norm_eps")) is not None:
             self.gguf_writer.add_layer_norm_rms_eps(f_rms_eps)
+            print(f"gguf: rms norm epsilon = {f_rms_eps}")
         if (f_norm_eps := self.find_hparam(["layer_norm_eps", "layer_norm_epsilon", "norm_epsilon"], optional=True)) is not None:
             self.gguf_writer.add_layer_norm_eps(f_norm_eps)
+            print(f"gguf: layer norm epsilon = {f_norm_eps}")
         if (n_experts := self.hparams.get("num_local_experts")) is not None:
             self.gguf_writer.add_expert_count(n_experts)
+            print(f"gguf: expert count = {n_experts}")
         if (n_experts_used := self.hparams.get("num_experts_per_tok")) is not None:
             self.gguf_writer.add_expert_used_count(n_experts_used)
+            print(f"gguf: experts used count = {n_experts_used}")
 
         self.gguf_writer.add_file_type(self.ftype)
+        print(f"gguf: file type = {self.ftype}")
 
     def write_tensors(self):
         block_count = self.hparams.get("n_layers", self.hparams.get("num_hidden_layers", self.hparams.get("n_layer")))
@@ -219,7 +230,7 @@ class Model(ABC):
     def _set_vocab_gpt2(self):
         dir_model = self.dir_model
         hparams = self.hparams
-        tokens: list[bytearray] = []
+        tokens: list[str] = []
         toktypes: list[int] = []
 
         from transformers import AutoTokenizer
@@ -232,8 +243,7 @@ class Model(ABC):
 
         for i in range(vocab_size):
             if i not in reverse_vocab:
-                pad_token = f"[PAD{i}]".encode('utf-8')
-                tokens.append(bytearray(pad_token))
+                tokens.append(f"[PAD{i}]")
                 toktypes.append(gguf.TokenType.USER_DEFINED)
             elif reverse_vocab[i] in added_vocab:
                 tokens.append(reverse_vocab[i])
@@ -255,7 +265,7 @@ class Model(ABC):
     def _set_vocab_qwen(self):
         dir_model = self.dir_model
         hparams = self.hparams
-        tokens: list[bytearray] = []
+        tokens: list[str] = []
         toktypes: list[int] = []
 
         from transformers import AutoTokenizer
@@ -280,8 +290,7 @@ class Model(ABC):
 
         for i in range(vocab_size):
             if i not in reverse_vocab:
-                pad_token = f"[PAD{i}]".encode("utf-8")
-                tokens.append(bytearray(pad_token))
+                tokens.append(f"[PAD{i}]")
                 toktypes.append(gguf.TokenType.USER_DEFINED)
             elif reverse_vocab[i] in added_vocab:
                 tokens.append(reverse_vocab[i])
@@ -320,7 +329,7 @@ class Model(ABC):
         tokenizer = SentencePieceProcessor(str(tokenizer_path))
         vocab_size = self.hparams.get('vocab_size', tokenizer.vocab_size())
 
-        for token_id in range(vocab_size):
+        for token_id in range(tokenizer.vocab_size()):
             piece = tokenizer.id_to_piece(token_id)
             text = piece.encode("utf-8")
             score = tokenizer.get_score(token_id)
@@ -345,9 +354,13 @@ class Model(ABC):
                 added_tokens_json = json.load(f)
 
                 for key in added_tokens_json:
-                    tokens.append(key.encode("utf-8"))
-                    scores.append(-1000.0)
-                    toktypes.append(SentencePieceTokenTypes.USER_DEFINED)
+                    key = key.encode("utf-8")
+                    if key not in tokens:
+                        tokens.append(key)
+                        scores.append(-1000.0)
+                        toktypes.append(SentencePieceTokenTypes.USER_DEFINED)
+
+        assert len(tokens) == vocab_size
 
         self.gguf_writer.add_tokenizer_model("llama")
         self.gguf_writer.add_token_list(tokens)
@@ -357,12 +370,8 @@ class Model(ABC):
         special_vocab = gguf.SpecialVocab(self.dir_model, n_vocab=len(tokens))
         special_vocab.add_to_gguf(self.gguf_writer)
 
-    def _set_vocab_hf(self):
-        path = self.dir_model
-        added_tokens_path = self.dir_model
-        vocab = HfVocab(
-            path, added_tokens_path if added_tokens_path.exists() else None
-        )
+    def _set_vocab_llama_hf(self):
+        vocab = LlamaHfVocab(self.dir_model)
         tokens = []
         scores = []
         toktypes = []
@@ -764,6 +773,148 @@ class BaichuanModel(Model):
         return weights[r * n_part:r * n_part + r, ...]
 
 
+@Model.register("XverseForCausalLM")
+class XverseModel(Model):
+    model_arch = gguf.MODEL_ARCH.XVERSE
+
+    def set_vocab(self):
+        assert (self.dir_model / "tokenizer.json").is_file()
+        dir_model = self.dir_model
+        hparams = self.hparams
+
+        tokens: list[bytearray] = []
+        toktypes: list[int] = []
+
+        from transformers import AutoTokenizer
+        tokenizer = AutoTokenizer.from_pretrained(dir_model)
+        vocab_size = hparams.get("vocab_size", len(tokenizer.vocab))
+        assert max(tokenizer.vocab.values()) < vocab_size
+
+        reverse_vocab = {id_: encoded_tok for encoded_tok, id_ in tokenizer.vocab.items()}
+        added_vocab = tokenizer.get_added_vocab()
+
+        for token_id in range(vocab_size):
+            token_text = reverse_vocab[token_id].encode('utf-8')
+            # replace "\x00" to string with length > 0
+            if token_text == b"\x00":
+                toktype = gguf.TokenType.BYTE  # special
+                token_text = f"<{token_text}>".encode('utf-8')
+            elif re.fullmatch(br"<0x[0-9A-Fa-f]{2}>", token_text):
+                toktype = gguf.TokenType.BYTE  # special
+            elif reverse_vocab[token_id] in added_vocab:
+                if tokenizer.added_tokens_decoder[token_id].special:
+                    toktype = gguf.TokenType.CONTROL
+                else:
+                    toktype = gguf.TokenType.USER_DEFINED
+            else:
+                toktype = gguf.TokenType.NORMAL
+
+            tokens.append(token_text)
+            toktypes.append(toktype)
+
+        self.gguf_writer.add_tokenizer_model("llama")
+        self.gguf_writer.add_token_list(tokens)
+        self.gguf_writer.add_token_types(toktypes)
+
+        special_vocab = gguf.SpecialVocab(dir_model, n_vocab=len(tokens))
+        special_vocab.add_to_gguf(self.gguf_writer)
+
+    def set_gguf_parameters(self):
+        block_count = self.hparams["num_hidden_layers"]
+        head_count = self.hparams["num_attention_heads"]
+        head_count_kv = self.hparams.get("num_key_value_heads", head_count)
+        hf_repo = self.hparams.get("_name_or_path", "")
+
+        ctx_length = 0
+        if "max_sequence_length" in self.hparams:
+            ctx_length = self.hparams["max_sequence_length"]
+        elif "max_position_embeddings" in self.hparams:
+            ctx_length = self.hparams["max_position_embeddings"]
+        elif "model_max_length" in self.hparams:
+            ctx_length = self.hparams["model_max_length"]
+        else:
+            print("gguf: can not find ctx length parameter.")
+            sys.exit()
+
+        self.gguf_writer.add_name(self.dir_model.name)
+        self.gguf_writer.add_source_hf_repo(hf_repo)
+        self.gguf_writer.add_tensor_data_layout("Meta AI original pth")
+        self.gguf_writer.add_context_length(ctx_length)
+        self.gguf_writer.add_embedding_length(self.hparams["hidden_size"])
+        self.gguf_writer.add_block_count(block_count)
+        self.gguf_writer.add_feed_forward_length(self.hparams["intermediate_size"])
+        self.gguf_writer.add_rope_dimension_count(self.hparams["hidden_size"] // self.hparams["num_attention_heads"])
+        self.gguf_writer.add_head_count(head_count)
+        self.gguf_writer.add_head_count_kv(head_count_kv)
+        self.gguf_writer.add_layer_norm_rms_eps(self.hparams["rms_norm_eps"])
+
+        if self.hparams.get("rope_scaling") is not None and "factor" in self.hparams["rope_scaling"]:
+            if self.hparams["rope_scaling"].get("type") == "linear":
+                self.gguf_writer.add_rope_scaling_type(gguf.RopeScalingType.LINEAR)
+                self.gguf_writer.add_rope_scaling_factor(self.hparams["rope_scaling"]["factor"])
+
+    def write_tensors(self):
+        # Collect tensors from generator object
+        model_kv = dict(self.get_tensors())
+        block_count = self.hparams["num_hidden_layers"]
+        head_count = self.hparams["num_attention_heads"]
+        tensor_map = gguf.get_tensor_name_map(self.model_arch, block_count)
+        head_count_kv = self.hparams.get("num_key_value_heads", head_count)
+
+        for name, data_torch in model_kv.items():
+            # we don't need these
+            if name.endswith(".rotary_emb.inv_freq"):
+                continue
+
+            old_dtype = data_torch.dtype
+
+            # convert any unsupported data types to float32
+            if data_torch.dtype not in (torch.float16, torch.float32):
+                data_torch = data_torch.to(torch.float32)
+
+            # HF models permute some of the tensors, so we need to undo that
+            if name.endswith(("q_proj.weight")):
+                data_torch = self._reverse_hf_permute(data_torch, head_count, head_count)
+            if name.endswith(("k_proj.weight")):
+                data_torch = self._reverse_hf_permute(data_torch, head_count, head_count_kv)
+
+            data = data_torch.squeeze().numpy()
+
+            # map tensor names
+            new_name = tensor_map.get_name(name, try_suffixes=(".weight", ".bias"))
+            if new_name is None:
+                print(f"Can not map tensor {name!r}")
+                sys.exit()
+
+            n_dims = len(data.shape)
+            data_dtype = data.dtype
+
+            # if f32 desired, convert any float16 to float32
+            if self.ftype == 0 and data_dtype == np.float16:
+                data = data.astype(np.float32)
+
+            # TODO: Why cant we use these float16 as-is? There should be not reason to store float16 as float32
+            if self.ftype == 1 and data_dtype == np.float16 and n_dims == 1:
+                data = data.astype(np.float32)
+
+            # if f16 desired, convert any float32 2-dim weight tensors to float16
+            if self.ftype == 1 and data_dtype == np.float32 and name.endswith(".weight") and n_dims == 2:
+                data = data.astype(np.float16)
+
+            print(f"{name} -> {new_name}, n_dims = {n_dims}, {old_dtype} --> {data.dtype}")
+            self.gguf_writer.add_tensor(new_name, data)
+
+    def _reverse_hf_permute(self, weights: Tensor, n_head: int, n_kv_head: int | None = None) -> Tensor:
+        if n_kv_head is not None and n_head != n_kv_head:
+            n_head //= n_kv_head
+
+        return (
+            weights.reshape(n_head, 2, weights.shape[0] // n_head // 2, *weights.shape[1:])
+            .swapaxes(1, 2)
+            .reshape(weights.shape)
+        )
+
+
 @Model.register("FalconForCausalLM", "RWForCausalLM")
 class FalconModel(Model):
     model_arch = gguf.MODEL_ARCH.FALCON
@@ -1043,12 +1194,87 @@ class StableLMModel(Model):
         self.gguf_writer.add_layer_norm_eps(self.find_hparam(["layer_norm_eps", "norm_eps"]))
 
 
-@Model.register("MixtralForCausalLM")
-class MixtralModel(Model):
+@Model.register("LlamaForCausalLM", "MistralForCausalLM", "MixtralForCausalLM")
+class LlamaModel(Model):
     model_arch = gguf.MODEL_ARCH.LLAMA
 
     def set_vocab(self):
+        try:
+            self. _set_vocab_sentencepiece()
+        except FileNotFoundError:
+            self._set_vocab_llama_hf()
+
+    def set_gguf_parameters(self):
+        super().set_gguf_parameters()
+        hparams = self.hparams
+        self.gguf_writer.add_vocab_size(hparams["vocab_size"])
+        self.gguf_writer.add_rope_dimension_count(hparams["hidden_size"] // hparams["num_attention_heads"])
+
+    # Same as super class, but permuting q_proj, k_proj
+    def write_tensors(self):
+        block_count = self.hparams.get("n_layers", self.hparams.get("num_hidden_layers", self.hparams.get("n_layer")))
+        tensor_map = gguf.get_tensor_name_map(self.model_arch, block_count)
+        n_head = self.hparams.get("num_attention_heads")
+        n_kv_head = self.hparams.get("num_key_value_heads")
+        for name, data_torch in self.get_tensors():
+            # we don't need these
+            if name.endswith((".attention.masked_bias", ".attention.bias", ".attention.rotary_emb.inv_freq")):
+                continue
+
+            old_dtype = data_torch.dtype
+
+            # convert any unsupported data types to float32
+            if data_torch.dtype not in (torch.float16, torch.float32):
+                data_torch = data_torch.to(torch.float32)
+
+            data = data_torch.numpy()
+
+            if name.endswith("q_proj.weight"):
+                data = permute(data, n_head, n_head)
+            if name.endswith("k_proj.weight"):
+                data = permute(data, n_head, n_kv_head)
+
+            data = data.squeeze()
+
+            # map tensor names
+            new_name = tensor_map.get_name(name, try_suffixes=(".weight", ".bias"))
+            if new_name is None:
+                print(f"Can not map tensor {name!r}")
+                sys.exit()
+
+            n_dims = len(data.shape)
+            data_dtype = data.dtype
+
+            # if f32 desired, convert any float16 to float32
+            if self.ftype == 0 and data_dtype == np.float16:
+                data = data.astype(np.float32)
+
+            # TODO: Why cant we use these float16 as-is? There should be not reason to store float16 as float32
+            if self.ftype == 1 and data_dtype == np.float16 and n_dims == 1:
+                data = data.astype(np.float32)
+
+            # if f16 desired, convert any float32 2-dim weight tensors to float16
+            if self.ftype == 1 and data_dtype == np.float32 and name.endswith(".weight") and n_dims == 2:
+                data = data.astype(np.float16)
+
+            print(f"{new_name}, n_dims = {n_dims}, {old_dtype} --> {data.dtype}")
+
+            self.gguf_writer.add_tensor(new_name, data)
+
+
+@Model.register("GrokForCausalLM")
+class GrokModel(Model):
+    model_arch = gguf.MODEL_ARCH.GROK
+
+    def set_vocab(self):
         self._set_vocab_sentencepiece()
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def set_gguf_parameters(self):
+        super().set_gguf_parameters()
+        self.gguf_writer.add_name("Grok")
 
 
 @Model.register("MiniCPMForCausalLM")
@@ -1069,7 +1295,7 @@ class MiniCPMModel(Model):
         self.gguf_writer.add_file_type(self.ftype)
 
     def set_vocab(self):
-        self._set_vocab_hf()
+        self._set_vocab_llama_hf()
 
     def _reverse_hf_permute(self, weights: Tensor, n_head: int, n_kv_head: int | None = None) -> Tensor:
         if n_kv_head is not None and n_head != n_kv_head:
@@ -1670,11 +1896,8 @@ class BertModel(Model):
             self.gguf_writer.add_pooling_type(pooling_type)
 
     def set_vocab(self):
-        path = self.dir_model
-        added_tokens_path = self.dir_model if self.dir_model.exists() else None
-
         # use huggingface vocab to get all tokens
-        vocab = HfVocab(path, added_tokens_path)
+        vocab = LlamaHfVocab(self.dir_model, ignore_nonllama=True)
         tokens, scores, toktypes = zip(*vocab.all_tokens())
         assert len(tokens) == vocab.vocab_size
         self.vocab_size = vocab.vocab_size
