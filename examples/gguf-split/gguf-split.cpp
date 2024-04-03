@@ -48,7 +48,7 @@ static void split_print_usage(const char * executable) {
     printf("  --split                 split GGUF to multiple GGUF (enabled by default)\n");
     printf("  --merge                 merge multiple GGUF to a single GGUF\n");
     printf("  --split-max-tensors     max tensors in each split (default: %d)\n", default_params.n_split_tensors);
-    printf("  --split-max-size N(M|G) max size per split\n");
+    printf("  --split-max-size N[M|G] max size per split\n");
     printf("  --dry-run               only print out a split plan and exit, without writing any new files\n");
     printf("\n");
 }
@@ -56,13 +56,8 @@ static void split_print_usage(const char * executable) {
 // return convert string, for example "128M" or "4G" to number of bytes
 static size_t split_str_to_n_bytes(std::string str) {
     size_t n_bytes = 0;
-    int n;
     char u = str.back();
-    sscanf(str.c_str(), "%d", &n);
-    if (n <= 0) {
-        throw std::invalid_argument("error: size must be a positive value");
-    }
-    n_bytes = n;
+    sscanf(str.c_str(), "%lld", &n_bytes);
     switch (u) {
         case 'M': case 'm':
             n_bytes *= 1024 * 1024; // megabytes
@@ -71,7 +66,10 @@ static size_t split_str_to_n_bytes(std::string str) {
             n_bytes *= 1024 * 1024 * 1024; // gigabytes
             break;
         default:
+            if (u < '0' || u > '9') {
             throw std::invalid_argument("error: supported units are M (megabytes) or G (gigabytes), but got: " + std::string(1, str.back()));
+            }
+            // else no suffix
     }
     return n_bytes;
 }
