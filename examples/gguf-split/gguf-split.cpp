@@ -57,17 +57,21 @@ static void split_print_usage(const char * executable) {
 static size_t split_str_to_n_bytes(std::string str) {
     size_t n_bytes = 0;
     int n;
-    if (str.back() == 'M') {
-        sscanf(str.c_str(), "%d", &n);
-        n_bytes = n * 1024 * 1024; // megabytes
-    } else if (str.back() == 'G') {
-        sscanf(str.c_str(), "%d", &n);
-        n_bytes = n * 1024 * 1024 * 1024; // gigabytes
-    } else {
-        throw std::invalid_argument("error: supported units are M (megabytes) or G (gigabytes), but got: " + std::string(1, str.back()));
-    }
+    char u = str.back();
+    sscanf(str.c_str(), "%d", &n);
     if (n <= 0) {
         throw std::invalid_argument("error: size must be a positive value");
+    }
+    n_bytes = n;
+    switch (u) {
+        case 'M':
+            n_bytes *= 1024 * 1024; // megabytes
+            break;
+        case 'G':
+            n_bytes *= 1024 * 1024 * 1024; // gigabytes
+            break;
+        default:
+            throw std::invalid_argument("error: supported units are M (megabytes) or G (gigabytes), but got: " + std::string(1, str.back()));
     }
     return n_bytes;
 }
