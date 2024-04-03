@@ -275,8 +275,7 @@ struct split_strategy {
                 struct ggml_tensor * t = ggml_get_tensor(ctx_meta, gguf_get_tensor_name(ctx_out, i));
                 total_size += ggml_nbytes(t);
             }
-            total_size = total_size / 1024 / 1024; // convert to megabytes
-            printf("split %05d: n_tensors = %d, total_size = %luM\n", i_split + 1, gguf_get_n_tensors(ctx_out), static_cast<unsigned long>(total_size));
+            printf("split %05d: n_tensors = %d, total_size = %llu\n", i_split + 1, gguf_get_n_tensors(ctx_out), total_size);
             i_split++;
         }
     }
