@@ -64,10 +64,10 @@ static size_t split_str_to_n_bytes(std::string str) {
     }
     n_bytes = n;
     switch (u) {
-        case 'M':
+        case 'M': case 'm':
             n_bytes *= 1024 * 1024; // megabytes
             break;
-        case 'G':
+        case 'G': case 'g':
             n_bytes *= 1024 * 1024 * 1024; // gigabytes
             break;
         default:
