@@ -74,6 +74,27 @@ static size_t split_str_to_n_bytes(std::string str) {
     return n_bytes;
 }
 
+static void split_infer_output_filename(split_params & params) {
+    size_t len = params.input.size();
+    if (len > 5 && params.input.substr(len -= 5, 5) == ".gguf") {
+        std::string basen = params.input.substr(0, len);
+        if (params.operation == SPLIT_OP_SPLIT) {
+            params.output = basen + "-split";
+            return;
+        }
+        if (len > 21) {
+            std::string splitn = basen.substr(len -= 21, 21);
+            basen = basen.substr(0, len);
+            if (splitn.substr(0, 16) == "-split-00001-of-") {
+                params.output = basen + ".gguf";
+                return;
+            }
+        }
+        throw std::invalid_argument("error: couldn't infer output filename");
+    }
+    throw std::invalid_argument("error: GGUF_IN does not end with .gguf suffix");
+}
+
 static void split_params_parse_ex(int argc, const char ** argv, split_params & params) {
     std::string arg;
     const std::string arg_prefix = "--";
@@ -148,12 +169,18 @@ static void split_params_parse_ex(int argc, const char ** argv, split_params & p
         throw std::invalid_argument("error: invalid parameter for argument: " + arg);
     }
 
-    if (argc - arg_idx < 2) {
+    if (arg_idx < argc) {
+        params.input = argv[arg_idx++];
+
+        if (arg_idx < argc) {
+            params.output = argv[arg_idx++];
+        } else {
+            split_infer_output_filename(params);
+        }
+    }
+    if (arg_idx != argc) {
         throw std::invalid_argument("error: bad arguments");
     }
-
-    params.input = argv[arg_idx++];
-    params.output = argv[arg_idx++];
 }
 
 static bool split_params_parse(int argc, const char ** argv, split_params & params) {
