@@ -243,7 +243,7 @@ struct split_strategy {
 
         // set the correct n_split for all ctx_out
         for (auto & ctx : ctx_outs) {
-            gguf_set_val_u16(ctx, LLM_KV_SPLIT_COUNT, ctx_outs.size());
+            gguf_set_val_u16(ctx, LLM_KV_SPLIT_COUNT, static_cast<uint16_t>(ctx_outs.size()));
         }
     }
 
@@ -264,7 +264,7 @@ struct split_strategy {
     }
 
     void print_info() {
-        printf("n_split: %ld\n", ctx_outs.size());
+        printf("n_split: %u\n", static_cast<unsigned>(ctx_outs.size()));
         int i_split = 0;
         for (auto & ctx_out : ctx_outs) {
             // re-calculate the real gguf size for each split (= metadata size + total size of all tensors)
@@ -274,14 +274,14 @@ struct split_strategy {
                 total_size += ggml_nbytes(t);
             }
             total_size = total_size / 1024 / 1024; // convert to megabytes
-            printf("split %05d: n_tensors = %d, total_size = %ldM\n", i_split + 1, gguf_get_n_tensors(ctx_out), total_size);
+            printf("split %05d: n_tensors = %d, total_size = %luM\n", i_split + 1, gguf_get_n_tensors(ctx_out), static_cast<unsigned long>(total_size));
             i_split++;
         }
     }
 
     void write() {
         int i_split = 0;
-        int n_split = ctx_outs.size();
+        int n_split = static_cast<int>(ctx_outs.size());
         for (auto & ctx_out : ctx_outs) {
             // construct file path
             char split_path[PATH_MAX] = {0};
@@ -355,7 +355,7 @@ static void gguf_split(const split_params & split_params) {
 
     // prepare the strategy
     split_strategy strategy(split_params, f_input, ctx_gguf, ctx_meta);
-    int n_split = strategy.ctx_outs.size();
+    int n_split = static_cast<int>(strategy.ctx_outs.size());
     strategy.print_info();
 
     if (!split_params.dry_run) {
