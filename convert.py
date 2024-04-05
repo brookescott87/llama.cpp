@@ -30,7 +30,7 @@ from sentencepiece import SentencePieceProcessor
 
 if 'NO_LOCAL_GGUF' not in os.environ:
     sys.path.insert(1, str(Path(__file__).parent / 'gguf-py'))
-    sys.path.insert(2, str(Path(__file__).parent.parent / 'lib' / 'python'))
+    sys.path.insert(2, str(Path(__file__).parent.parent / 'lib' / 'gguf-py'))
 import gguf
 
 if TYPE_CHECKING:

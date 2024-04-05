@@ -1233,8 +1233,8 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/LlamaConfig.cmake
               ${CMAKE_CURRENT_BINARY_DIR}/LlamaConfigVersion.cmake
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Llama)
 
-install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/gguf-py/gguf
-        DESTINATION ${CMAKE_INSTALL_LIBDIR}/python)
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/gguf-py
+        DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
 set(GGML_PUBLIC_HEADERS "ggml.h" "ggml-alloc.h" "ggml-backend.h"
         "${GGML_HEADERS_CUDA}"  "${GGML_HEADERS_OPENCL}"
