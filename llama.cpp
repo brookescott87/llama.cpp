@@ -73,6 +73,7 @@
 #include <cstring>
 #include <ctime>
 #include <forward_list>
+#include <filesystem>
 #include <fstream>
 #include <functional>
 #include <initializer_list>
@@ -14483,11 +14484,14 @@ uint32_t llama_model_quantize(
         const char * fname_inp,
         const char * fname_out,
         const llama_model_quantize_params * params) {
+    std::string fname_tmp = std::string(fname_out) + ".tmp";
     try {
-        llama_model_quantize_internal(fname_inp, fname_out, params);
+        llama_model_quantize_internal(fname_inp, fname_tmp, params);
+        std::filesystem::rename(fname_tmp, fname_out);
         return 0;
     } catch (const std::exception & err) {
         LLAMA_LOG_ERROR("%s: failed to quantize: %s\n", __func__, err.what());
+        std::filesystem::remove(fname_tmp);
         return 1;
     }
 }
