@@ -209,6 +209,7 @@ struct split_strategy {
     struct gguf_context * ctx_gguf;
     struct ggml_context * ctx_meta = NULL;
     const int n_tensors;
+    size_t total_size = 0;
 
     // one ctx_out per one output file
     std::vector<struct gguf_context *> ctx_outs;
@@ -297,26 +298,62 @@ struct split_strategy {
         int i_split = 0;
         for (auto & ctx_out : ctx_outs) {
             // re-calculate the real gguf size for each split (= metadata size + total size of all tensors)
-            size_t total_size = gguf_get_meta_size(ctx_out);
+            size_t split_size = gguf_get_meta_size(ctx_out);
             for (int i = 0; i < gguf_get_n_tensors(ctx_out); ++i) {
                 struct ggml_tensor * t = ggml_get_tensor(ctx_meta, gguf_get_tensor_name(ctx_out, i));
-                total_size += ggml_nbytes(t);
+                split_size += ggml_nbytes(t);
             }
-            printf("split %05d: n_tensors = %d, total_size = %llu\n", i_split + 1, gguf_get_n_tensors(ctx_out), total_size);
+            printf("split %05d: n_tensors = %d, total_size = %llu\n", i_split + 1, gguf_get_n_tensors(ctx_out), split_size);
+            total_size += split_size;
             i_split++;
         }
+    }
+
+    static unsigned timeleft(int64_t elapsed, size_t progress, size_t total) {
+        return static_cast<unsigned>(((static_cast<double>(elapsed) / static_cast<double>(progress)) * static_cast<double>(total - progress)) / 1000000.0);
+    }
+
+    static void overspace(int &linelen, int &linepos, bool newline = false)
+    {
+        int count = linelen - linepos;
+        for (int i = 0; i < count; ++i) {
+            printf(" ");
+        }
+        if (newline) {
+            printf("\n");
+            linelen = 0;
+        } else {
+            printf("\r");
+            linelen = linepos;
+        }
+        linepos = 0;
     }
 
     void write() {
         int i_split = 0;
         int n_split = static_cast<int>(ctx_outs.size());
+        int w_count = 0;
+        size_t progress = 0;
+        int64_t start_us = llama_time_us();
+        int linelen = 0;
+        int linepos = 0;
+        unsigned timeremain = 0;
         for (auto & ctx_out : ctx_outs) {
             // construct file path
             char split_path[PATH_MAX] = {0};
             llama_split_path(split_path, sizeof(split_path), params.output.c_str(), i_split, n_split);
 
             // open the output file
-            printf("Writing file %s ... ", split_path);
+            overspace(linelen, linepos);
+            linepos = printf("Writing file %s [%4d/%4d] ", split_path, w_count, n_tensors);
+            if (total_size) {
+                if (w_count) {
+                    linepos += printf("%u:%02u ", timeremain / 60, timeremain % 60);
+                } else {
+                    linepos += printf("??:?? ");
+                }
+            }
+            linepos += printf("...");
             fflush(stdout);
             std::ofstream fout = std::ofstream(split_path, std::ios::binary);
             fout.exceptions(std::ofstream::failbit); // fail fast on write errors
@@ -341,9 +378,20 @@ struct split_strategy {
                 // copy tensor from input to output file
                 copy_file_to_file(f_input, fout, offset, n_bytes);
                 zeros(fout, GGML_PAD(n_bytes, GGUF_DEFAULT_ALIGNMENT) - n_bytes);
-            }
+                overspace(linelen, linepos);
+                linepos = printf("Writing file %s [%4d/%4d] ", split_path, ++w_count, n_tensors);
+                if (total_size) {
+                    timeremain = timeleft(llama_time_us() - start_us, progress + static_cast<size_t>(fout.tellp()), total_size);
+                    linepos += printf("%u:%02u ", timeremain / 60, timeremain % 60);
 
-            printf("done\n");
+                }
+                linepos += printf("...");
+                fflush(stdout);
+            }
+            progress += static_cast<size_t>(fout.tellp());
+
+            linepos += printf(" done");
+            overspace(linelen, linepos, true);
             // close the file
             fout.close();
             i_split++;
