@@ -1046,15 +1046,7 @@ class OutputFile:
         self.gguf = gguf.GGUFWriter(fname_out, gguf.MODEL_ARCH_NAMES[ARCH], endianess=endianess)
 
     def add_meta_arch(self, params: Params) -> None:
-        name = "LLaMA"
-
-        # TODO: better logic to determine model name
-        if params.n_ctx == 4096:
-            name = "LLaMA v2"
-        elif params.path_model is not None:
-            name = str(params.path_model.parent).split('/')[-1]
-
-        self.gguf.add_name                (name)
+        self.gguf.add_name                (params.path_model.name)
         self.gguf.add_vocab_size          (params.n_vocab)
         self.gguf.add_context_length      (params.n_ctx)
         self.gguf.add_embedding_length    (params.n_embd)
