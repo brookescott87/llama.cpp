@@ -356,7 +356,7 @@ struct split_strategy {
             linepos += printf("...");
             fflush(stdout);
             std::ofstream fout = std::ofstream(split_path, std::ios::binary);
-            fout.exceptions(std::ofstream::failbit); // fail fast on write errors
+            fout.exceptions(std::ofstream::failbit | std::ofstream::badbit); // fail fast on write errors
 
             // write metadata
             std::vector<uint8_t> data(gguf_get_meta_size(ctx_out));

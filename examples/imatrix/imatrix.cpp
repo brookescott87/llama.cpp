@@ -196,6 +196,7 @@ void IMatrixCollector::keep_imatrix(int ncall) const {
 
 void IMatrixCollector::save_imatrix(const char * fname) const {
     std::ofstream out(fname, std::ios::binary);
+    out.exceptions(std::ofstream::failbit | std::ofstream::badbit);
     int n_entries = m_stats.size();
     out.write((const char*)&n_entries, sizeof(n_entries));
     for (auto& p : m_stats) {
