@@ -10,6 +10,14 @@
 #include <cmath>
 #include <algorithm>
 
+#if defined(_WIN32)
+#include <windows.h>
+#else
+#include <sys/time.h>
+#include <sys/resource.h>
+#include <errno.h>
+#endif
+
 struct quant_option {
     std::string name;
     llama_ftype ftype;
@@ -97,6 +105,7 @@ static void usage(const char * executable) {
     printf("  --exclude-weights tensor_name: use importance matrix for this/these tensor(s)\n");
     printf("  --output-tensor-type ggml_type: use this ggml_type for the output.weight tensor\n");
     printf("  --token-embedding-type ggml_type: use this ggml_type for the token embeddings tensor\n");
+    printf("  --background: quantize as a background task\n");
     printf("  --override-kv KEY=TYPE:VALUE\n");
     printf("      Advanced option to override model metadata by key in the quantized model. May be specified multiple times.\n");
     printf("Note: --include-weights and --exclude-weights cannot be used together\n");
@@ -111,6 +120,29 @@ static void usage(const char * executable) {
     }
     exit(1);
 }
+
+#if defined(_WIN32)
+static void set_background_priority()
+{
+    const DWORD dwPriClass = IDLE_PRIORITY_CLASS;
+    fprintf(stderr, "Setting priority class to 0x%x\n", dwPriClass);
+    if (!SetPriorityClass(GetCurrentProcess(), dwPriClass))
+    {
+        fprintf(stderr, "SetPriorityClass failed: error 0x%08x", GetLastError());
+    }
+}
+#else
+static void set_background_priority()
+{
+    const int prio = 19;
+    fprintf(stderr, "Setting priority class to %d\n", prio);
+
+    if (setpriority(PRIO_PROCESS, 0, prio)) {
+    {
+        fprintf(stderr, "setpriority failed: error %d", errno);
+    }
+}
+#endif
 
 static void load_imatrix(const std::string & imatrix_file, std::unordered_map<std::string, std::vector<float>> & imatrix_data) {
     std::ifstream in(imatrix_file.c_str(), std::ios::binary);
@@ -254,6 +286,7 @@ int main(int argc, char ** argv) {
     std::string imatrix_file;
     std::vector<std::string> included_weights, excluded_weights;
     std::vector<llama_model_kv_override> kv_overrides;
+    bool background = false;
 
     for (; arg_idx < argc && strncmp(argv[arg_idx], "--", 2) == 0; arg_idx++) {
         if (strcmp(argv[arg_idx], "--leave-output-tensor") == 0) {
@@ -296,6 +329,8 @@ int main(int argc, char ** argv) {
             } else {
                 usage(argv[0]);
             }
+        } else if (strcmp(argv[arg_idx], "--background") == 0) {
+            background = true;
         } else {
             usage(argv[0]);
         }
@@ -388,8 +423,11 @@ int main(int argc, char ** argv) {
     }
     fprintf(stderr, "\n");
 
-    const int64_t t_main_start_us = llama_time_us();
+    if (background) {
+        set_background_priority();
+    }
 
+    const int64_t t_main_start_us = llama_time_us();
     int64_t t_quantize_us = 0;
 
     // load the model
