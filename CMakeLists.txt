@@ -1233,8 +1233,8 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/LlamaConfig.cmake
               ${CMAKE_CURRENT_BINARY_DIR}/LlamaConfigVersion.cmake
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Llama)
 
-install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/gguf-py
-        DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/gguf-py/gguf
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/python)
 
 set(GGML_PUBLIC_HEADERS "ggml.h" "ggml-alloc.h" "ggml-backend.h"
         "${GGML_HEADERS_CUDA}"  "${GGML_HEADERS_OPENCL}"
@@ -1259,6 +1259,17 @@ install(
     DESTINATION ${CMAKE_INSTALL_BINDIR})
 install(
     FILES convert-lora-to-ggml.py
+    PERMISSIONS
+        OWNER_READ
+        OWNER_WRITE
+        OWNER_EXECUTE
+        GROUP_READ
+        GROUP_EXECUTE
+        WORLD_READ
+        WORLD_EXECUTE
+    DESTINATION ${CMAKE_INSTALL_BINDIR})
+install(
+    FILES ${CMAKE_CURRENT_SOURCE_DIR}/gguf-py/scripts/gguf-dump.py
     PERMISSIONS
         OWNER_READ
         OWNER_WRITE
