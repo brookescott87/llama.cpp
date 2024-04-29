@@ -1285,7 +1285,11 @@ install(
         WORLD_EXECUTE
     DESTINATION ${CMAKE_INSTALL_BINDIR})
 install(
-    FILES ${CMAKE_CURRENT_SOURCE_DIR}/gguf-py/scripts/gguf-dump.py
+    FILES
+        ${CMAKE_CURRENT_SOURCE_DIR}/gguf-py/scripts/gguf-convert-endian.py
+        ${CMAKE_CURRENT_SOURCE_DIR}/gguf-py/scripts/gguf-dump.py
+        ${CMAKE_CURRENT_SOURCE_DIR}/gguf-py/scripts/gguf-new-metadata.py
+        ${CMAKE_CURRENT_SOURCE_DIR}/gguf-py/scripts/gguf-set-metadata.py
     PERMISSIONS
         OWNER_READ
         OWNER_WRITE
