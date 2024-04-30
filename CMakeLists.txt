@@ -159,6 +159,7 @@ if (CMAKE_SYSTEM_NAME MATCHES "Linux")
 endif()
 
 if (NOT MSVC)
+    add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-std=c++17>)
     if (LLAMA_SANITIZE_THREAD)
         add_compile_options(-fsanitize=thread)
         link_libraries     (-fsanitize=thread)
