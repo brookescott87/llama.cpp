@@ -26,6 +26,8 @@
             "cacheVariables": {
                 "CMAKE_INSTALL_PREFIX": "/opt/toaster",
                 "LLAMA_AVX2": "TRUE",
+                "LLAMA_AVX512": "TRUE",
+                "LLAMA_AVX512_VNNI": "TRUE",
                 "LLAMA_CUDA": "TRUE"
             }
         }
