@@ -141,7 +141,7 @@ static void set_background_priority()
     const int prio = 19;
     fprintf(stderr, "Setting priority class to %d\n", prio);
 
-    if (setpriority(PRIO_PROCESS, 0, prio)) {
+    if (setpriority(PRIO_PROCESS, 0, prio))
     {
         fprintf(stderr, "setpriority failed: error %d", errno);
     }
