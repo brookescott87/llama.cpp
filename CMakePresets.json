@@ -21,7 +21,7 @@
             "name": "cloud",
             "displayName": "Toaster (Cloud)",
             "generator": "Unix Makefiles",
-            "binaryDir": "${sourceDir}/build/toaster",
+            "binaryDir": "${sourceDir}/build",
             "description": "Default Configuration for the Quantization Toaster on Cloud",
             "cacheVariables": {
                 "CMAKE_INSTALL_PREFIX": "/opt/toaster",
