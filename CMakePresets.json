@@ -16,6 +16,18 @@
                 "LLAMA_AVX2": "TRUE",
                 "LLAMA_CUDA": "TRUE"
             }
+        },
+        {
+            "name": "cloud",
+            "displayName": "Toaster (Cloud)",
+            "generator": "Unix Makefiles",
+            "binaryDir": "${sourceDir}/build/toaster",
+            "description": "Default Configuration for the Quantization Toaster on Cloud",
+            "cacheVariables": {
+                "CMAKE_INSTALL_PREFIX": "/opt/toaster",
+                "LLAMA_AVX2": "TRUE",
+                "LLAMA_CUDA": "TRUE"
+            }
         }
     ],
     "buildPresets": [
