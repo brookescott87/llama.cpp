@@ -56,6 +56,7 @@ models = [
         { "name": "mpt",            "tokt": TOKENIZER_TYPE.BPE, "repo": "https://huggingface.co/mosaicml/mpt-7b", },
         { "name": "starcoder",      "tokt": TOKENIZER_TYPE.BPE, "repo": "https://huggingface.co/bigcode/starcoder2-3b", },
         { "name": "gpt-2",          "tokt": TOKENIZER_TYPE.BPE, "repo": "https://huggingface.co/openai-community/gpt2", },
+        { "name": "soliloquy",      "tokt": TOKENIZER_TYPE.BPE, "repo": "https://huggingface.co/openlynn/Llama-3-Soliloquy-8B", },
         ]
 
 # make directory "models/tokenizers" if it doesn't exist
