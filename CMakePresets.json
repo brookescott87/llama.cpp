@@ -37,6 +37,11 @@
             "name": "toastmaster",
             "displayName": "Toastmaster",
             "configurePreset": "toaster"
+        },
+        {
+            "name": "cloudmaster",
+            "displayName": "Toastmaster (Cloud)",
+            "configurePreset": "cloud"
         }
     ]
 }
