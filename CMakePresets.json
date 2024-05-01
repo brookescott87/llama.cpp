@@ -13,6 +13,7 @@
             "description": "Default Configuration for the Quantization Toaster",
             "cacheVariables": {
                 "CMAKE_INSTALL_PREFIX": "C:/Apps/Toaster",
+                "CMAKE_BUILD_TYPE": "Release",
                 "LLAMA_AVX2": "TRUE",
                 "LLAMA_CUDA": "TRUE"
             }
@@ -25,6 +26,7 @@
             "description": "Default Configuration for the Quantization Toaster on Cloud",
             "cacheVariables": {
                 "CMAKE_INSTALL_PREFIX": "/opt/toaster",
+                "CMAKE_BUILD_TYPE": "Release",
                 "LLAMA_AVX2": "TRUE",
                 "LLAMA_AVX512": "TRUE",
                 "LLAMA_AVX512_VNNI": "TRUE",
