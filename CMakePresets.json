@@ -43,7 +43,8 @@
         {
             "name": "cloudmaster",
             "displayName": "Toastmaster (Cloud)",
-            "configurePreset": "cloud"
+            "configurePreset": "cloud",
+            "jobs": 16
         }
     ]
 }
