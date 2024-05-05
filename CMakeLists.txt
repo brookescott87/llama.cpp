@@ -152,6 +152,7 @@ find_package(Threads REQUIRED)
 include(CheckCXXCompilerFlag)
 
 add_compile_definitions(GGML_SCHED_MAX_COPIES=${LLAMA_SCHED_MAX_COPIES})
+add_compile_definitions(TOASTER=1)
 
 # enable libstdc++ assertions for debug builds
 if (CMAKE_SYSTEM_NAME MATCHES "Linux")
