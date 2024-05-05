@@ -65,6 +65,21 @@ static const char * const LLM_KV_QUANTIZE_IMATRIX_DATASET    = "quantize.imatrix
 static const char * const LLM_KV_QUANTIZE_IMATRIX_N_ENTRIES  = "quantize.imatrix.entries_count";
 static const char * const LLM_KV_QUANTIZE_IMATRIX_N_CHUNKS   = "quantize.imatrix.chunks_count";
 
+static const char *imatrix_filename(const char *filename)
+{
+    const char *tailp = filename;
+
+    for (const char *cp = filename; *cp; ++cp)
+    {
+        if (*cp == '/' || *cp == '\\')
+        {
+            tailp = cp + 1;
+        }
+    }
+
+    return tailp;
+}
+
 static bool try_parse_ftype(const std::string & ftype_str_in, llama_ftype & ftype, std::string & ftype_str_out) {
     std::string ftype_str;
 
@@ -342,7 +357,7 @@ int main(int argc, char ** argv) {
             llama_model_kv_override kvo;
             std::strcpy(kvo.key, LLM_KV_QUANTIZE_IMATRIX_FILE);
             kvo.tag = LLAMA_KV_OVERRIDE_TYPE_STR;
-            strncpy(kvo.val_str, imatrix_file.c_str(), 127);
+            strncpy(kvo.val_str, imatrix_filename(imatrix_file.c_str()), 127);
             kvo.val_str[127] = '\0';
             kv_overrides.emplace_back(std::move(kvo));
         }
