@@ -316,19 +316,24 @@ class Model(ABC):
             res = "command-r"
 
         if res is None:
+            res = self.fallback_pre
             logger.warning("\n")
             logger.warning("**************************************************************************************")
             logger.warning("** WARNING: The BPE pre-tokenizer was not recognized!")
-            logger.warning("**          There are 2 possible reasons for this:")
-            logger.warning("**          - the model has not been added to convert-hf-to-gguf-update.py yet")
-            logger.warning("**          - the pre-tokenization config has changed upstream")
-            logger.warning("**          Check your model files and convert-hf-to-gguf-update.py and update them accordingly.")
-            logger.warning("** ref:     https://github.com/ggerganov/llama.cpp/pull/6920")
-            logger.warning("**")
+            if res:
+                logger.warning(f"** Falling back to {res}")
+            else:
+                logger.warning("**          There are 2 possible reasons for this:")
+                logger.warning("**          - the model has not been added to convert-hf-to-gguf-update.py yet")
+                logger.warning("**          - the pre-tokenization config has changed upstream")
+                logger.warning("**          Check your model files and convert-hf-to-gguf-update.py and update them accordingly.")
+                logger.warning("** ref:     https://github.com/ggerganov/llama.cpp/pull/6920")
+                logger.warning("**")
             logger.warning(f"** chkhsh:  {chkhsh}")
             logger.warning("**************************************************************************************")
             logger.warning("\n")
-            raise NotImplementedError("BPE pre-tokenizer was not recognized - update get_vocab_base_pre()")
+            if not res:
+                raise NotImplementedError("BPE pre-tokenizer was not recognized - update get_vocab_base_pre()")
 
         logger.debug(f"tokenizer.ggml.pre: {repr(res)}")
         logger.debug(f"chkhsh: {chkhsh}")
@@ -2912,6 +2917,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--model-name", type=str, default=None, help="name of the model")
     parser.add_argument("--verbose", action="store_true", help="increase output verbosity")
 
+    parser.add_argument("--fallback-pre", type=str, default=None, help="name of the fallback pretokenizer")
+
     return parser.parse_args()
 
 
@@ -2960,6 +2967,7 @@ def main() -> None:
 
         logger.info("Set model parameters")
         model_instance.set_gguf_parameters()
+        model_instance.fallback_pre = args.fallback_pre
 
         logger.info("Set model tokenizer")
         model_instance.set_vocab()
