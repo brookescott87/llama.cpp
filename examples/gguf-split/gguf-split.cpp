@@ -59,6 +59,10 @@ static void split_print_usage(const char * executable) {
 static size_t split_str_to_n_bytes(std::string str) {
     size_t n_bytes = 0;
     char u = str.back();
+
+	for (std::size_t cp = 0; (cp = str.find('_', cp)) != std::string::npos; ) {
+		str.erase(cp, 1);
+    }
     sscanf(str.c_str(), "%lld", &n_bytes);
     switch (u) {
         case 'M': case 'm':
