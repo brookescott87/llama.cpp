@@ -29,18 +29,36 @@
             }
         },
         {
-            "name": "cloud",
-            "displayName": "Toaster (Cloud)",
+            "name": "linux",
+            "displayName": "Toaster (Linux)",
             "generator": "Unix Makefiles",
             "binaryDir": "${sourceDir}/build",
-            "description": "Default Configuration for the Quantization Toaster on Cloud",
+            "description": "Default Configuration for the Quantization Toaster on Linux",
             "cacheVariables": {
                 "CMAKE_INSTALL_PREFIX": "/opt/toaster",
                 "CMAKE_BUILD_TYPE": "Release",
                 "LLAMA_AVX2": "TRUE",
-                "LLAMA_AVX512": "TRUE",
-                "LLAMA_AVX512_VNNI": "TRUE",
                 "LLAMA_CUDA": "TRUE"
+            }
+        },
+        {
+            "name": "linux-debug",
+            "displayName": "Toaster (Linux Debug)",
+            "inherits": "linux",
+            "description": "Debugging Configuration for the Quantization Toaster on Linux",
+            "cacheVariables": {
+                "CMAKE_INSTALL_PREFIX": "/opt/toaster-debug",
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        },
+        {
+            "name": "cloud",
+            "displayName": "Toaster (Cloud)",
+            "inherits": "linux",
+            "description": "Default Configuration for the Quantization Toaster on Cloud",
+            "cacheVariables": {
+                "LLAMA_AVX512": "TRUE",
+                "LLAMA_AVX512_VNNI": "TRUE"
             }
         },
         {
@@ -64,6 +82,18 @@
             "name": "toastmaster-debug",
             "displayName": "Toastmaster (Debug)",
             "configurePreset": "toaster-debug"
+        },
+        {
+            "name": "linuxmaster",
+            "displayName": "Toastmaster (Linux)",
+            "configurePreset": "linux",
+            "jobs": 4
+        },
+        {
+            "name": "linuxmaster-debug",
+            "displayName": "Toastmaster (Linux Debug)",
+            "configurePreset": "linux-debug",
+            "jobs": 4
         },
         {
             "name": "cloudmaster",
