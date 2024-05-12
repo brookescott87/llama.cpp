@@ -2534,7 +2534,7 @@ def main() -> None:
     }
 
     if args.outfile is not None:
-        fname_out = args.outfile
+        fname_out = args.outfile.with_suffix('.{FTYPE}.gguf')
     else:
         # output in the same directory as the model by default
         fname_out = dir_model / 'ggml-model-{ftype}.gguf'
@@ -2545,7 +2545,7 @@ def main() -> None:
 
     with torch.inference_mode():
         model_class = Model.from_model_architecture(hparams["architectures"][0])
-        model_instance = model_class(dir_model, ftype_map[args.outtype], fname_out, args.bigendian, args.use_temp_file, args.no_lazy)
+        model_instance = model_class(dir_model, ftype_map[args.outtype], fname_out.with_suffix('.tmp'), args.bigendian, args.use_temp_file, args.no_lazy)
 
         logger.info("Set model parameters")
         model_instance.set_gguf_parameters()
@@ -2564,6 +2564,17 @@ def main() -> None:
             model_instance.write()
 
         logger.info(f"Model successfully exported to '{model_instance.fname_out}'")
+
+        if args.outfile:
+            args.outfile.unlink(missing_ok=True)
+            args.outfile.hardlink_to(model_instance.fname_out)
+
+        fname_out = model_instance.fname_out.with_suffix(fname_out.suffix)
+        model_instance.fname_out.rename(fname_out)
+        logger.info(f"Model renamed to {fname_out}")
+
+        if args.outfile:
+            logger.info(f"Model linked to {args.outfile}")
 
 
 if __name__ == '__main__':
