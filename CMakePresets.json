@@ -62,6 +62,18 @@
             }
         },
         {
+            "name": "cloud-nocuda",
+            "displayName": "Toaster (Cloud, No CUDA)",
+            "inherits": "linux",
+            "description": "Default Configuration for the Quantization Toaster on Cloud",
+            "cacheVariables": {
+                "LLAMA_AVX512": "TRUE",
+                "LLAMA_AVX512_VNNI": "TRUE",
+                "LLAMA_CUDA": "FALSE",
+                "CMAKE_INSTALL_PREFIX": "/opt/toaster-nocuda"
+            }
+        },
+        {
             "name": "cloud-debug",
             "displayName": "Toaster (Cloud Debug)",
             "inherits": "cloud",
@@ -99,6 +111,12 @@
             "name": "cloudmaster",
             "displayName": "Toastmaster (Cloud)",
             "configurePreset": "cloud",
+            "jobs": 16
+        },
+        {
+            "name": "cloudmaster-nocuda",
+            "displayName": "Toastmaster (Cloud, No CUDA)",
+            "configurePreset": "cloud-nocuda",
             "jobs": 16
         },
         {
