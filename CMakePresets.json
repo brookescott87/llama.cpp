@@ -7,10 +7,16 @@
     },
     "configurePresets": [
         {
-            "name": "toaster",
-            "displayName": "Toaster",
+            "name": "windows",
+            "displayName": "Toaster (Windows)",
             "generator": "Visual Studio 17 2022",
             "description": "Default Configuration for the Quantization Toaster",
+            "binaryDir": "build/default",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            },
             "cacheVariables": {
                 "CMAKE_INSTALL_PREFIX": "C:/Apps/Toaster",
                 "CMAKE_BUILD_TYPE": "Release",
@@ -19,10 +25,11 @@
             }
         },
         {
-            "name": "toaster-debug",
-            "displayName": "Toaster (Cloud Debug)",
-            "inherits": "toaster",
+            "name": "windows-debug",
+            "displayName": "Toaster (Windows Debug)",
+            "inherits": "windows",
             "description": "Debugging Configuration for the Quantization Toaster",
+            "binaryDir": "build/debug",
             "cacheVariables": {
                 "CMAKE_INSTALL_PREFIX": "C:/Apps/ToasterDbg",
                 "CMAKE_BUILD_TYPE": "Debug"
@@ -32,8 +39,13 @@
             "name": "linux",
             "displayName": "Toaster (Linux)",
             "generator": "Unix Makefiles",
-            "binaryDir": "${sourceDir}/build",
+            "binaryDir": "build/default",
             "description": "Default Configuration for the Quantization Toaster on Linux",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Linux"
+            },
             "cacheVariables": {
                 "CMAKE_INSTALL_PREFIX": "/opt/toaster",
                 "CMAKE_BUILD_TYPE": "Release",
@@ -46,6 +58,7 @@
             "displayName": "Toaster (Linux Debug)",
             "inherits": "linux",
             "description": "Debugging Configuration for the Quantization Toaster on Linux",
+            "binaryDir": "build/debug",
             "cacheVariables": {
                 "CMAKE_INSTALL_PREFIX": "/opt/toaster-debug",
                 "CMAKE_BUILD_TYPE": "Debug"
@@ -56,6 +69,7 @@
             "displayName": "Toaster (Cloud)",
             "inherits": "linux",
             "description": "Default Configuration for the Quantization Toaster on Cloud",
+            "binaryDir": "build/default",
             "cacheVariables": {
                 "LLAMA_AVX512": "TRUE",
                 "LLAMA_AVX512_VNNI": "TRUE"
@@ -64,11 +78,10 @@
         {
             "name": "cloud-nocuda",
             "displayName": "Toaster (Cloud, No CUDA)",
-            "inherits": "linux",
+            "inherits": "cloud",
             "description": "Default Configuration for the Quantization Toaster on Cloud",
+            "binaryDir": "build/nocuda",
             "cacheVariables": {
-                "LLAMA_AVX512": "TRUE",
-                "LLAMA_AVX512_VNNI": "TRUE",
                 "LLAMA_CUDA": "FALSE",
                 "CMAKE_INSTALL_PREFIX": "/opt/toaster-nocuda"
             }
@@ -78,6 +91,7 @@
             "displayName": "Toaster (Cloud Debug)",
             "inherits": "cloud",
             "description": "Debugging Configuration for the Quantization Toaster on Cloud",
+            "binaryDir": "build/debug",
             "cacheVariables": {
                 "CMAKE_INSTALL_PREFIX": "/opt/toaster-debug",
                 "CMAKE_BUILD_TYPE": "Debug"
@@ -86,44 +100,153 @@
     ],
     "buildPresets": [
         {
-            "name": "toastmaster",
-            "displayName": "Toastmaster",
-            "configurePreset": "toaster"
+            "name": "windows",
+            "configurePreset": "windows",
+            "targets": [ "all", "install" ],
+            "cleanFirst": true,
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            }
         },
         {
-            "name": "toastmaster-debug",
-            "displayName": "Toastmaster (Debug)",
-            "configurePreset": "toaster-debug"
+            "name": "windows-debug",
+            "configurePreset": "windows-debug",
+            "inherits": "windows"
         },
         {
-            "name": "linuxmaster",
-            "displayName": "Toastmaster (Linux)",
+            "name": "linux",
             "configurePreset": "linux",
-            "jobs": 4
+            "targets": [ "all", "install" ],
+            "cleanFirst": true,
+            "jobs": 4,
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Linux"
+            }
         },
         {
-            "name": "linuxmaster-debug",
-            "displayName": "Toastmaster (Linux Debug)",
+            "name": "linux-debug",
             "configurePreset": "linux-debug",
-            "jobs": 4
+            "inherits": "linux"
         },
         {
-            "name": "cloudmaster",
-            "displayName": "Toastmaster (Cloud)",
+            "name": "cloud",
             "configurePreset": "cloud",
-            "jobs": 16
+            "jobs": 16,
+            "inherits" : "linux"
         },
         {
-            "name": "cloudmaster-nocuda",
-            "displayName": "Toastmaster (Cloud, No CUDA)",
+            "name": "cloud-nocuda",
             "configurePreset": "cloud-nocuda",
-            "jobs": 16
+            "inherits" : "cloud"
         },
         {
-            "name": "cloudmaster-debug",
-            "displayName": "Toastmaster (Cloud Debug)",
+            "name": "cloud-debug",
             "configurePreset": "cloud-debug",
-            "jobs": 16
+            "inherits": "cloud"
+        }
+    ],
+    "workflowPresets": [
+        {
+            "name": "windows",
+            "displayName": "Windows workflow",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "windows"
+                },
+                {
+                    "type": "build",
+                    "name": "windows"
+                }
+            ]
+        },
+        {
+            "name": "windows-debug",
+            "displayName": "Windows debug workflow",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "windows-debug"
+                },
+                {
+                    "type": "build",
+                    "name": "windows-debug"
+                }
+            ]
+        },
+        {
+            "name": "linux",
+            "displayName": "Linux workflow",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "linux"
+                },
+                {
+                    "type": "build",
+                    "name": "linux"
+                }
+            ]
+        },
+        {
+            "name": "linux-debug",
+            "displayName": "Linux debug workflow",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "linux-debug"
+                },
+                {
+                    "type": "build",
+                    "name": "linux-debug"
+                }
+            ]
+        },
+        {
+            "name": "cloud",
+            "displayName": "Cloud workflow",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "cloud"
+                },
+                {
+                    "type": "build",
+                    "name": "cloud"
+                }
+            ]
+        },
+        {
+            "name": "cloud-debug",
+            "displayName": "Cloud debug workflow",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "cloud-debug"
+                },
+                {
+                    "type": "build",
+                    "name": "cloud-debug"
+                }
+            ]
+        },
+        {
+            "name": "cloud-nocuda",
+            "displayName": "Cloud no-CUDA workflow",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "cloud-nocuda"
+                },
+                {
+                    "type": "build",
+                    "name": "cloud-nocuda"
+                }
+            ]
         }
     ]
 }
