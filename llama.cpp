@@ -4732,6 +4732,9 @@ static void llm_load_print_meta(llama_model_loader & ml, llama_model & model) {
     LLAMA_LOG_INFO("%s: ssm_dt_rank      = %u\n",     __func__, hparams.ssm_dt_rank);
     LLAMA_LOG_INFO("%s: model type       = %s\n",     __func__, llama_model_type_name(model.type));
     LLAMA_LOG_INFO("%s: model ftype      = %s\n",     __func__, llama_model_ftype_name(model.ftype).c_str());
+#ifdef TOASTER
+    LLAMA_LOG_INFO("%s: model params     = %ld\n",    __func__, ml.n_elements);
+#else
     if (ml.n_elements >= 1e12) {
         LLAMA_LOG_INFO("%s: model params     = %.2f T\n", __func__, ml.n_elements*1e-12);
     } else if (ml.n_elements >= 1e9) {
@@ -4741,6 +4744,7 @@ static void llm_load_print_meta(llama_model_loader & ml, llama_model & model) {
     } else {
         LLAMA_LOG_INFO("%s: model params     = %.2f K\n", __func__, ml.n_elements*1e-3);
     }
+#endif
     if (ml.n_bytes < GiB) {
         LLAMA_LOG_INFO("%s: model size       = %.2f MiB (%.2f BPW) \n", __func__, ml.n_bytes/1024.0/1024.0,        ml.n_bytes*8.0/ml.n_elements);
     } else {
