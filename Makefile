@@ -379,13 +379,14 @@ ifneq ($(filter ppc64le%,$(UNAME_M)),)
 	CUDA_POWER_ARCH = 1
 endif
 
+ifneq ($(filter loongarch64%,$(UNAME_M)),)
+	MK_CFLAGS   += -mlasx
+	MK_CXXFLAGS += -mlasx
+endif
+
 else
 	MK_CFLAGS   += -march=rv64gcv -mabi=lp64d
 	MK_CXXFLAGS += -march=rv64gcv -mabi=lp64d
-endif
-
-ifdef LLAMA_QKK_64
-	MK_CPPFLAGS += -DGGML_QKK_64
 endif
 
 ifndef LLAMA_NO_ACCELERATE

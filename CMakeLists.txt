@@ -77,6 +77,7 @@ option(LLAMA_AVX2                            "llama: enable AVX2"               
 option(LLAMA_AVX512                          "llama: enable AVX512"                             OFF)
 option(LLAMA_AVX512_VBMI                     "llama: enable AVX512-VBMI"                        OFF)
 option(LLAMA_AVX512_VNNI                     "llama: enable AVX512-VNNI"                        OFF)
+option(LLAMA_AVX512_BF16                     "llama: enable AVX512-BF16"                        OFF)
 option(LLAMA_FMA                             "llama: enable FMA"                                ${INS_ENB})
 # in MSVC F16C is implied with AVX2/AVX512
 if (NOT MSVC)
@@ -123,7 +124,6 @@ set(LLAMA_METAL_MACOSX_VERSION_MIN "" CACHE STRING
 set(LLAMA_METAL_STD "" CACHE STRING          "llama: metal standard version (-std flag)")
 option(LLAMA_KOMPUTE                         "llama: use Kompute"                               OFF)
 option(LLAMA_RPC                             "llama: use RPC"                                   OFF)
-option(LLAMA_QKK_64                          "llama: use super-block size of 64 for k-quants"   OFF)
 option(LLAMA_SYCL                            "llama: use SYCL"                                  OFF)
 option(LLAMA_SYCL_F16                        "llama: use 16 bit floats for sycl calculations"   OFF)
 set(LLAMA_SYCL_TARGET   "INTEL" CACHE STRING "llama: sycl target device")
@@ -133,6 +133,8 @@ set(LLAMA_SCHED_MAX_COPIES  "4" CACHE STRING "llama: max input copies for pipeli
 option(LLAMA_BUILD_TESTS                     "llama: build tests"    ${LLAMA_STANDALONE})
 option(LLAMA_BUILD_EXAMPLES                  "llama: build examples" ${LLAMA_STANDALONE})
 option(LLAMA_BUILD_SERVER                    "llama: build server example"                      ON)
+option(LLAMA_LASX                            "llama: enable lasx"                               ON)
+option(LLAMA_LSX                             "llama: enable lsx"                                ON)
 
 # add perf arguments
 option(LLAMA_PERF                            "llama: enable perf"                               OFF)
@@ -378,10 +380,6 @@ if (LLAMA_LLAMAFILE)
     set(GGML_SOURCES_LLAMAFILE sgemm.cpp)
 endif()
 
-if (LLAMA_QKK_64)
-    add_compile_definitions(GGML_QKK_64)
-endif()
-
 if (LLAMA_CUBLAS)
     message(WARNING "LLAMA_CUBLAS is deprecated and will be removed in the future.\nUse LLAMA_CUDA instead")
     set(LLAMA_CUDA ON)
@@ -498,6 +496,12 @@ if (LLAMA_VULKAN)
         set(GGML_SOURCES_VULKAN ggml-vulkan.cpp)
 
         add_compile_definitions(GGML_USE_VULKAN)
+
+        # Workaround to the "can't dereference invalidated vector iterator" bug in clang-cl debug build
+        # Posssibly relevant: https://stackoverflow.com/questions/74748276/visual-studio-no-displays-the-correct-length-of-stdvector
+        if (MSVC AND CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+            add_compile_definitions(_ITERATOR_DEBUG_LEVEL=0)
+        endif()
 
         if (LLAMA_VULKAN_CHECK_RESULTS)
             add_compile_definitions(GGML_VULKAN_CHECK_RESULTS)
@@ -1057,6 +1061,10 @@ elseif (CMAKE_OSX_ARCHITECTURES STREQUAL "x86_64" OR CMAKE_GENERATOR_PLATFORM_LW
                 add_compile_definitions($<$<COMPILE_LANGUAGE:C>:__AVX512VNNI__>)
                 add_compile_definitions($<$<COMPILE_LANGUAGE:CXX>:__AVX512VNNI__>)
             endif()
+            if (LLAMA_AVX512_BF16)
+                add_compile_definitions($<$<COMPILE_LANGUAGE:C>:__AVX512BF16__>)
+                add_compile_definitions($<$<COMPILE_LANGUAGE:CXX>:__AVX512BF16__>)
+            endif()
         elseif (LLAMA_AVX2)
             list(APPEND ARCH_FLAGS /arch:AVX2)
         elseif (LLAMA_AVX)
@@ -1088,6 +1096,9 @@ elseif (CMAKE_OSX_ARCHITECTURES STREQUAL "x86_64" OR CMAKE_GENERATOR_PLATFORM_LW
         if (LLAMA_AVX512_VNNI)
             list(APPEND ARCH_FLAGS -mavx512vnni)
         endif()
+        if (LLAMA_AVX512_BF16)
+            list(APPEND ARCH_FLAGS -mavx512bf16)
+        endif()
     endif()
 elseif (${CMAKE_SYSTEM_PROCESSOR} MATCHES "ppc64")
     message(STATUS "PowerPC detected")
@@ -1097,6 +1108,17 @@ elseif (${CMAKE_SYSTEM_PROCESSOR} MATCHES "ppc64")
         list(APPEND ARCH_FLAGS -mcpu=native -mtune=native)
         #TODO: Add  targets for Power8/Power9 (Altivec/VSX) and Power10(MMA) and query for big endian systems (ppc64/le/be)
     endif()
+elseif (${CMAKE_SYSTEM_PROCESSOR} MATCHES "loongarch64")
+    message(STATUS "loongarch64 detected")
+
+    list(APPEND ARCH_FLAGS -march=loongarch64)
+    if (LLAMA_LASX)
+        list(APPEND ARCH_FLAGS -mlasx)
+    endif()
+    if (LLAMA_LSX)
+        list(APPEND ARCH_FLAGS -mlsx)
+    endif()
+
 else()
     message(STATUS "Unknown architecture")
 endif()
