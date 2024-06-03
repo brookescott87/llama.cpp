@@ -126,6 +126,7 @@ set(LLAMA_METAL_MACOSX_VERSION_MIN "" CACHE STRING
 set(LLAMA_METAL_STD "" CACHE STRING          "llama: metal standard version (-std flag)")
 option(LLAMA_KOMPUTE                         "llama: use Kompute"                               OFF)
 option(LLAMA_RPC                             "llama: use RPC"                                   OFF)
+option(LLAMA_OPENMP                          "llama: use OpenMP"                                ON)
 option(LLAMA_SYCL                            "llama: use SYCL"                                  OFF)
 option(LLAMA_SYCL_F16                        "llama: use 16 bit floats for sycl calculations"   OFF)
 set(LLAMA_SYCL_TARGET   "INTEL" CACHE STRING "llama: sycl target device")
@@ -291,6 +292,17 @@ if (LLAMA_METAL)
         ${METAL_FRAMEWORK}
         ${METALKIT_FRAMEWORK}
         )
+endif()
+
+if (LLAMA_OPENMP)
+    find_package(OpenMP)
+    if (OpenMP_FOUND)
+        message(STATUS "OpenMP found")
+        add_compile_definitions(GGML_USE_OPENMP)
+        set(LLAMA_EXTRA_LIBS ${LLAMA_EXTRA_LIBS} OpenMP::OpenMP_C OpenMP::OpenMP_CXX)
+    else()
+        message(WARNING "OpenMP not found")
+    endif()
 endif()
 
 if (LLAMA_BLAS)
@@ -774,6 +786,7 @@ if (LLAMA_KOMPUTE)
             kompute-shaders/op_mul_mat_q4_0.comp
             kompute-shaders/op_mul_mat_q4_1.comp
             kompute-shaders/op_mul_mat_q6_k.comp
+            kompute-shaders/op_getrows_f32.comp
             kompute-shaders/op_getrows_f16.comp
             kompute-shaders/op_getrows_q4_0.comp
             kompute-shaders/op_getrows_q4_1.comp
@@ -806,6 +819,7 @@ if (LLAMA_KOMPUTE)
             shaderop_mul_mat_q4_0.h
             shaderop_mul_mat_q4_1.h
             shaderop_mul_mat_q6_k.h
+            shaderop_getrows_f32.h
             shaderop_getrows_f16.h
             shaderop_getrows_q4_0.h
             shaderop_getrows_q4_1.h
@@ -1385,6 +1399,13 @@ if (LLAMA_METAL)
         )
     endif()
 endif()
+
+configure_file(cmake/llama.pc.in
+        "${CMAKE_CURRENT_BINARY_DIR}/llama.pc"
+        @ONLY)
+
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/llama.pc"
+        DESTINATION lib/pkgconfig)
 
 #
 # programs, examples and tests

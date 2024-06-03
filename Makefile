@@ -57,6 +57,8 @@ ifeq ($(UNAME_S),Darwin)
 		LLAMA_METAL := 1
 	endif
 
+	LLAMA_NO_OPENMP := 1
+
 	ifneq ($(UNAME_P),arm)
 		SYSCTL_M := $(shell sysctl -n hw.optional.arm64 2>/dev/null)
 		ifeq ($(SYSCTL_M),1)
@@ -135,12 +137,16 @@ MK_NVCCFLAGS = -std=c++11
 ifdef LLAMA_FAST
 MK_CFLAGS     += -Ofast
 HOST_CXXFLAGS += -Ofast
+ifndef LLAMA_DEBUG
 MK_NVCCFLAGS  += -O3
+endif # LLAMA_DEBUG
 else
 MK_CFLAGS     += -O3
 MK_CXXFLAGS   += -O3
+ifndef LLAMA_DEBUG
 MK_NVCCFLAGS  += -O3
-endif
+endif # LLAMA_DEBUG
+endif # LLAMA_FAST
 
 ifndef LLAMA_NO_CCACHE
 CCACHE := $(shell which ccache)
@@ -201,9 +207,10 @@ ifdef LLAMA_SCHED_MAX_COPIES
 endif
 
 ifdef LLAMA_DEBUG
-	MK_CFLAGS   += -O0 -g
-	MK_CXXFLAGS += -O0 -g
-	MK_LDFLAGS  += -g
+	MK_CFLAGS    += -O0 -g
+	MK_CXXFLAGS  += -O0 -g
+	MK_LDFLAGS   += -g
+	MK_NVCCFLAGS += -O0 -g
 
 	ifeq ($(UNAME_S),Linux)
 		MK_CPPFLAGS += -D_GLIBCXX_ASSERTIONS
@@ -399,6 +406,12 @@ ifndef LLAMA_NO_ACCELERATE
 		MK_LDFLAGS  += -framework Accelerate
 	endif
 endif # LLAMA_NO_ACCELERATE
+
+ifndef LLAMA_NO_OPENMP
+	MK_CPPFLAGS += -DGGML_USE_OPENMP
+	MK_CFLAGS   += -fopenmp
+	MK_CXXFLAGS += -fopenmp
+endif # LLAMA_NO_OPENMP
 
 ifdef LLAMA_OPENBLAS
 	MK_CPPFLAGS += -DGGML_USE_OPENBLAS $(shell pkg-config --cflags-only-I openblas)
