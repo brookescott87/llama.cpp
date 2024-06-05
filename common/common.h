@@ -35,7 +35,9 @@
 
 // build info
 extern int LLAMA_BUILD_NUMBER;
+extern int LLAMA_PATCH_NUMBER;
 extern char const * LLAMA_COMMIT;
+extern char const * LLAMA_PATCH_COMMIT;
 extern char const * LLAMA_COMPILER;
 extern char const * LLAMA_BUILD_TARGET;
 
