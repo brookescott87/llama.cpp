@@ -28,7 +28,7 @@ if(Git_FOUND)
         set(BUILD_COMMIT ${HEAD})
     endif()
     execute_process(
-        COMMAND ${GIT_EXECUTABLE} merge-base upstream/master HEAD
+        COMMAND ${GIT_EXECUTABLE} merge-base origin/master HEAD
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         OUTPUT_VARIABLE MERGEBASE
         OUTPUT_STRIP_TRAILING_WHITESPACE
