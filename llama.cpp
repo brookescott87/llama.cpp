@@ -1849,7 +1849,7 @@ struct llama_hparams {
     float    rope_attn_factor = 1.0f;
     float    rope_freq_base_train;
     float    rope_freq_scale_train;
-    uint32_t n_yarn_orig_ctx;
+    uint32_t n_ctx_orig_yarn;
     float    rope_yarn_log_mul;
 
     // for State Space Models
@@ -1891,7 +1891,7 @@ struct llama_hparams {
         if (this->n_expert_shared    != other.n_expert_shared)    return true;
 
         if (this->rope_finetuned  != other.rope_finetuned)  return true;
-        if (this->n_yarn_orig_ctx != other.n_yarn_orig_ctx) return true;
+        if (this->n_ctx_orig_yarn != other.n_ctx_orig_yarn) return true;
 
         if (this->ssm_d_conv  != other.ssm_d_conv)  return true;
         if (this->ssm_d_inner != other.ssm_d_inner) return true;
@@ -1950,7 +1950,7 @@ struct llama_cparams {
     float rope_freq_base;
     float rope_freq_scale;
 
-    uint32_t n_yarn_orig_ctx;
+    uint32_t n_ctx_orig_yarn;
     // These hyperparameters are not exposed in GGUF, because all
     // existing YaRN models use the same values for them.
     float yarn_ext_factor;
@@ -4006,8 +4006,8 @@ static void llm_load_hparams(
     ml.get_key(LLM_KV_ROPE_SCALING_FINETUNED, rope_finetuned, false);
     hparams.rope_finetuned = rope_finetuned;
 
-    hparams.n_yarn_orig_ctx = hparams.n_ctx_train;
-    ml.get_key(LLM_KV_ROPE_SCALING_ORIG_CTX_LEN, hparams.n_yarn_orig_ctx, false);
+    hparams.n_ctx_orig_yarn = hparams.n_ctx_train;
+    ml.get_key(LLM_KV_ROPE_SCALING_ORIG_CTX_LEN, hparams.n_ctx_orig_yarn, false);
 
     // rope_freq_base (optional)
     hparams.rope_freq_base_train = 10000.0f;
@@ -4969,7 +4969,7 @@ static void llm_load_print_meta(llama_model_loader & ml, llama_model & model) {
     LLAMA_LOG_INFO("%s: rope scaling     = %s\n",     __func__, rope_scaling_type);
     LLAMA_LOG_INFO("%s: freq_base_train  = %.1f\n",   __func__, hparams.rope_freq_base_train);
     LLAMA_LOG_INFO("%s: freq_scale_train = %g\n",     __func__, hparams.rope_freq_scale_train);
-    LLAMA_LOG_INFO("%s: n_yarn_orig_ctx  = %u\n",     __func__, hparams.n_yarn_orig_ctx);
+    LLAMA_LOG_INFO("%s: n_ctx_orig_yarn  = %u\n",     __func__, hparams.n_ctx_orig_yarn);
     LLAMA_LOG_INFO("%s: rope_finetuned   = %s\n",     __func__, hparams.rope_finetuned ? "yes" : "unknown");
     LLAMA_LOG_INFO("%s: ssm_d_conv       = %u\n",     __func__, hparams.ssm_d_conv);
     LLAMA_LOG_INFO("%s: ssm_d_inner      = %u\n",     __func__, hparams.ssm_d_inner);
@@ -7139,7 +7139,7 @@ struct llm_build_context {
     const int32_t n_kv;     // size of KV cache to consider (n_kv <= kv_self.size)
     const int32_t n_outputs;
     const int32_t kv_head;  // index of where we store new KV data in the cache
-    const int32_t n_orig_ctx;
+    const int32_t n_ctx_orig;
 
     const bool flash_attn;
 
@@ -7188,7 +7188,7 @@ struct llm_build_context {
         n_kv             (worst_case ? kv_self.size : kv_self.n),
         n_outputs        (worst_case ? n_tokens : lctx.n_outputs),
         kv_head          (worst_case ? (kv_self.recurrent ? 0 : kv_self.size - n_tokens) : kv_self.head),
-        n_orig_ctx       (cparams.n_yarn_orig_ctx),
+        n_ctx_orig       (cparams.n_ctx_orig_yarn),
         flash_attn       (cparams.flash_attn),
         pooling_type     (cparams.pooling_type),
         rope_type        (hparams.rope_type),
@@ -7246,7 +7246,7 @@ struct llm_build_context {
                             ggml_row_size(kv_self.k_l[il]->type, n_embd_head_k),
                             ggml_row_size(kv_self.k_l[il]->type, n_embd_k_gqa),
                             0),
-                        lctx.inp_K_shift, rope_factors, n_rot, rope_type, 0, n_orig_ctx, freq_base, freq_scale,
+                        lctx.inp_K_shift, rope_factors, n_rot, rope_type, n_ctx_orig, freq_base, freq_scale,
                         ext_factor, attn_factor, beta_fast, beta_slow);
 
             cb(tmp, "K_shifted", il);
@@ -7355,7 +7355,7 @@ struct llm_build_context {
         // choose long/short freq factors based on the context size
         const auto n_ctx_pre_seq = cparams.n_ctx / cparams.n_seq_max;
 
-        if (n_ctx_pre_seq > hparams.n_yarn_orig_ctx) {
+        if (n_ctx_pre_seq > hparams.n_ctx_orig_yarn) {
             return model.layers[il].rope_long;
         }
 
@@ -7471,14 +7471,14 @@ struct llm_build_context {
 
                 Qcur = ggml_rope_ext(
                     ctx0, ggml_reshape_3d(ctx0, Qcur, n_embd_head, n_head, n_tokens), inp_pos, nullptr,
-                    n_rot, rope_type, 0, n_orig_ctx, freq_base, freq_scale,
+                    n_rot, rope_type, n_ctx_orig, freq_base, freq_scale,
                     ext_factor, attn_factor, beta_fast, beta_slow
                 );
                 cb(Qcur, "Qcur", il);
 
                 Kcur = ggml_rope_ext(
                     ctx0, ggml_reshape_3d(ctx0, Kcur, n_embd_head, n_head_kv, n_tokens), inp_pos, nullptr,
-                    n_rot, rope_type, 0, n_orig_ctx, freq_base, freq_scale,
+                    n_rot, rope_type, n_ctx_orig, freq_base, freq_scale,
                     ext_factor, attn_factor, beta_fast, beta_slow
                 );
                 cb(Kcur, "Kcur", il);
@@ -7602,12 +7602,12 @@ struct llm_build_context {
                     case MODEL_7B:
                         Qcur = ggml_rope_ext(
                             ctx0, ggml_reshape_3d(ctx0, Qcur, n_embd_head, n_head, n_tokens), inp_pos, nullptr,
-                            n_rot, rope_type, 0, n_orig_ctx, freq_base, freq_scale,
+                            n_rot, rope_type, n_ctx_orig, freq_base, freq_scale,
                             ext_factor, attn_factor, beta_fast, beta_slow
                         );
                         Kcur = ggml_rope_ext(
                             ctx0, ggml_reshape_3d(ctx0, Kcur, n_embd_head, n_head_kv, n_tokens), inp_pos, nullptr,
-                            n_rot, rope_type, 0, n_orig_ctx, freq_base, freq_scale,
+                            n_rot, rope_type, n_ctx_orig, freq_base, freq_scale,
                             ext_factor, attn_factor, beta_fast, beta_slow
                         );
                         break;
@@ -7714,14 +7714,14 @@ struct llm_build_context {
 
                 Qcur = ggml_rope_ext(
                     ctx0, ggml_reshape_3d(ctx0, Qcur, n_embd_head, n_head, n_tokens), inp_pos, nullptr,
-                    n_rot, rope_type, 0, n_orig_ctx, freq_base, freq_scale,
+                    n_rot, rope_type, n_ctx_orig, freq_base, freq_scale,
                     ext_factor, attn_factor, beta_fast, beta_slow
                 );
                 cb(Qcur, "Qcur", il);
 
                 Kcur = ggml_rope_ext(
                     ctx0, ggml_reshape_3d(ctx0, Kcur, n_embd_head, n_head_kv, n_tokens), inp_pos, nullptr,
-                    n_rot, rope_type, 0, n_orig_ctx, freq_base, freq_scale,
+                    n_rot, rope_type, n_ctx_orig, freq_base, freq_scale,
                     ext_factor, attn_factor, beta_fast, beta_slow
                 );
                 cb(Kcur, "Kcur", il);
@@ -7834,13 +7834,13 @@ struct llm_build_context {
 
                 // using mode = 2 for neox mode
                 Qcur = ggml_rope_ext(
-                    ctx0, Qcur, inp_pos, nullptr, n_rot, rope_type, 0, n_orig_ctx,
+                    ctx0, Qcur, inp_pos, nullptr, n_rot, rope_type, n_ctx_orig,
                     freq_base, freq_scale, ext_factor, attn_factor, beta_fast, beta_slow
                 );
                 cb(Qcur, "Qcur", il);
 
                 Kcur = ggml_rope_ext(
-                    ctx0, Kcur, inp_pos, nullptr, n_rot, rope_type, 0, n_orig_ctx,
+                    ctx0, Kcur, inp_pos, nullptr, n_rot, rope_type, n_ctx_orig,
                     freq_base, freq_scale, ext_factor, attn_factor, beta_fast, beta_slow
                 );
                 cb(Kcur, "Kcur", il);
@@ -7958,14 +7958,14 @@ struct llm_build_context {
 
                 Qcur = ggml_rope_ext(
                     ctx0, ggml_reshape_3d(ctx0, Qcur, n_embd_head, n_head, n_tokens), inp_pos, nullptr,
-                    n_rot, rope_type, 0, n_orig_ctx, freq_base, freq_scale,
+                    n_rot, rope_type, n_ctx_orig, freq_base, freq_scale,
                     ext_factor, attn_factor, beta_fast, beta_slow
                 );
                 cb(Qcur, "Qcur", il);
 
                 Kcur = ggml_rope_ext(
                     ctx0, ggml_reshape_3d(ctx0, Kcur, n_embd_head, n_head_kv, n_tokens), inp_pos, nullptr,
-                    n_rot, rope_type, 0, n_orig_ctx, freq_base, freq_scale,
+                    n_rot, rope_type, n_ctx_orig, freq_base, freq_scale,
                     ext_factor, attn_factor, beta_fast, beta_slow
                 );
                 cb(Kcur, "Kcur", il);
@@ -8111,14 +8111,14 @@ struct llm_build_context {
 
                 Qcur = ggml_rope_ext(
                     ctx0, ggml_reshape_3d(ctx0, Qcur, n_embd_head, n_head, n_tokens), inp_pos, nullptr,
-                    n_rot, rope_type, 0, n_orig_ctx, freq_base, freq_scale,
+                    n_rot, rope_type, n_ctx_orig, freq_base, freq_scale,
                     ext_factor, attn_factor, beta_fast, beta_slow
                 );
                 cb(Qcur, "Qcur", il);
 
                 Kcur = ggml_rope_ext(
                     ctx0, ggml_reshape_3d(ctx0, Kcur, n_embd_head, n_head_kv, n_tokens), inp_pos, nullptr,
-                    n_rot, rope_type, 0, n_orig_ctx, freq_base, freq_scale,
+                    n_rot, rope_type, n_ctx_orig, freq_base, freq_scale,
                     ext_factor, attn_factor, beta_fast, beta_slow
                 );
                 cb(Kcur, "Kcur", il);
@@ -8465,14 +8465,14 @@ struct llm_build_context {
 
                 Qcur = ggml_rope_ext(
                     ctx0, ggml_reshape_3d(ctx0, Qcur, n_embd_head, n_head,    n_tokens), inp_pos, nullptr,
-                    n_rot, rope_type, 0, n_orig_ctx, freq_base, freq_scale,
+                    n_rot, rope_type, n_ctx_orig, freq_base, freq_scale,
                     ext_factor, attn_factor, beta_fast, beta_slow
                 );
                 cb(Qcur, "Qcur", il);
 
                 Kcur = ggml_rope_ext(
                     ctx0, ggml_reshape_3d(ctx0, Kcur, n_embd_head, n_head_kv, n_tokens), inp_pos, nullptr,
-                    n_rot, rope_type, 0, n_orig_ctx, freq_base, freq_scale,
+                    n_rot, rope_type, n_ctx_orig, freq_base, freq_scale,
                     ext_factor, attn_factor, beta_fast, beta_slow
                 );
                 cb(Kcur, "Kcur", il);
@@ -8905,14 +8905,14 @@ struct llm_build_context {
 
                 Qcur = ggml_rope_ext(
                     ctx0, Qcur, inp_pos, nullptr,
-                    n_rot, rope_type, 0, n_orig_ctx, freq_base, freq_scale,
+                    n_rot, rope_type, n_ctx_orig, freq_base, freq_scale,
                     ext_factor, attn_factor, beta_fast, beta_slow
                 );
                 cb(Qcur, "Qcur", il);
 
                 Kcur = ggml_rope_ext(
                     ctx0, Kcur, inp_pos, nullptr,
-                    n_rot, rope_type, 0, n_orig_ctx, freq_base, freq_scale,
+                    n_rot, rope_type, n_ctx_orig, freq_base, freq_scale,
                     ext_factor, attn_factor, beta_fast, beta_slow
                 );
                 cb(Kcur, "Kcur", il);
@@ -9024,13 +9024,13 @@ struct llm_build_context {
 
                 // using mode = 2 for neox mode
                 Qcur = ggml_rope_ext(
-                    ctx0, Qcur, inp_pos, nullptr, n_rot, rope_type, 0, n_orig_ctx,
+                    ctx0, Qcur, inp_pos, nullptr, n_rot, rope_type, n_ctx_orig,
                     freq_base, freq_scale, ext_factor, attn_factor, beta_fast, beta_slow
                 );
                 cb(Qcur, "Qcur", il);
 
                 Kcur = ggml_rope_ext(
-                    ctx0, Kcur, inp_pos, nullptr, n_rot, rope_type, 0, n_orig_ctx,
+                    ctx0, Kcur, inp_pos, nullptr, n_rot, rope_type, n_ctx_orig,
                     freq_base, freq_scale, ext_factor, attn_factor, beta_fast, beta_slow
                 );
                 cb(Kcur, "Kcur", il);
@@ -9136,14 +9136,14 @@ struct llm_build_context {
 
                 Qcur = ggml_rope_ext(
                     ctx0, ggml_reshape_3d(ctx0, Qcur, n_embd_head, n_head,    n_tokens), inp_pos, nullptr,
-                    n_rot, rope_type, 0, n_orig_ctx, freq_base, freq_scale,
+                    n_rot, rope_type, n_ctx_orig, freq_base, freq_scale,
                     ext_factor, attn_factor, beta_fast, beta_slow
                 );
                 cb(Qcur, "Qcur", il);
 
                 Kcur = ggml_rope_ext(
                     ctx0, ggml_reshape_3d(ctx0, Kcur, n_embd_head, n_head_kv, n_tokens), inp_pos, nullptr,
-                    n_rot, rope_type, 0, n_orig_ctx, freq_base, freq_scale,
+                    n_rot, rope_type, n_ctx_orig, freq_base, freq_scale,
                     ext_factor, attn_factor, beta_fast, beta_slow
                 );
                 cb(Kcur, "Kcur", il);
@@ -9250,14 +9250,14 @@ struct llm_build_context {
 
                 Qcur = ggml_rope_ext(
                     ctx0, ggml_reshape_3d(ctx0, Qcur, n_embd_head, n_head, n_tokens), inp_pos, nullptr,
-                    n_rot, rope_type, 0, n_orig_ctx, freq_base, freq_scale,
+                    n_rot, rope_type, n_ctx_orig, freq_base, freq_scale,
                     ext_factor, attn_factor, beta_fast, beta_slow
                 );
                 cb(Qcur, "Qcur", il);
 
                 Kcur = ggml_rope_ext(
                     ctx0, ggml_reshape_3d(ctx0, Kcur, n_embd_head, n_head_kv, n_tokens), inp_pos, nullptr,
-                    n_rot, rope_type, 0, n_orig_ctx, freq_base, freq_scale,
+                    n_rot, rope_type, n_ctx_orig, freq_base, freq_scale,
                     ext_factor, attn_factor, beta_fast, beta_slow
                 );
                 cb(Kcur, "Kcur", il);
@@ -9402,7 +9402,7 @@ struct llm_build_context {
                 Kcur = ggml_reshape_3d(ctx0, Kcur, n_embd_head, n_head_kv, n_tokens);
 
                 Qcur = ggml_rope_ext(
-                    ctx0, Qcur, inp_pos, nullptr, n_rot, rope_type, 0, n_orig_ctx,
+                    ctx0, Qcur, inp_pos, nullptr, n_rot, rope_type, n_ctx_orig,
                     freq_base, freq_scale, ext_factor, attn_factor, beta_fast, beta_slow
                 );
                 cb(Qcur, "Qcur", il);
@@ -9413,7 +9413,7 @@ struct llm_build_context {
                 cb(Qcur, "Qcur", il);
 
                 Kcur = ggml_rope_ext(
-                    ctx0, Kcur, inp_pos, nullptr, n_rot, rope_type, 0, n_orig_ctx,
+                    ctx0, Kcur, inp_pos, nullptr, n_rot, rope_type, n_ctx_orig,
                     freq_base, freq_scale, ext_factor, attn_factor, beta_fast, beta_slow
                 );
                 cb(Kcur, "Kcur", il);
@@ -9524,7 +9524,7 @@ struct llm_build_context {
                 Kcur = ggml_reshape_3d(ctx0, Kcur, n_embd_head, n_head_kv, n_tokens);
 
                 Qcur = ggml_rope_ext(
-                    ctx0, Qcur, inp_pos, rope_factors, n_rot, rope_type, 0, n_orig_ctx,
+                    ctx0, Qcur, inp_pos, rope_factors, n_rot, rope_type, n_ctx_orig,
                     freq_base, freq_scale, ext_factor, attn_factor, beta_fast, beta_slow
                 );
                 cb(Qcur, "Qcur", il);
@@ -9533,7 +9533,7 @@ struct llm_build_context {
                 cb(Qcur, "Qcur", il);
 
                 Kcur = ggml_rope_ext(
-                    ctx0, Kcur, inp_pos, rope_factors, n_rot, rope_type, 0, n_orig_ctx,
+                    ctx0, Kcur, inp_pos, rope_factors, n_rot, rope_type, n_ctx_orig,
                     freq_base, freq_scale, ext_factor, attn_factor, beta_fast, beta_slow
                 );
                 cb(Kcur, "Kcur", il);
@@ -9641,13 +9641,13 @@ struct llm_build_context {
 
                 Qcur = ggml_rope_ext(
                         ctx0, ggml_reshape_3d(ctx0, Qcur, n_rot, n_head,    n_tokens), inp_pos, nullptr,
-                        n_embd_head, rope_type, 0, n_orig_ctx, freq_base, freq_scale,
+                        n_embd_head, rope_type, n_ctx_orig, freq_base, freq_scale,
                         ext_factor, attn_factor, beta_fast, beta_slow);
                 cb(Qcur, "Qcur", il);
 
                 Kcur = ggml_rope_ext(
                         ctx0, ggml_reshape_3d(ctx0, Kcur, n_rot, n_head_kv, n_tokens), inp_pos, nullptr,
-                        n_embd_head, rope_type, 0, n_orig_ctx, freq_base, freq_scale,
+                        n_embd_head, rope_type, n_ctx_orig, freq_base, freq_scale,
                         ext_factor, attn_factor, beta_fast, beta_slow);
                 cb(Kcur, "Kcur", il);
 
@@ -9849,14 +9849,14 @@ struct llm_build_context {
 
                 struct ggml_tensor * Qcur = ggml_rope_ext(
                     ctx0, ggml_reshape_3d(ctx0, tmpq, n_embd_head, n_head,    n_tokens), inp_pos, nullptr,
-                    n_rot, rope_type, 0, n_orig_ctx, freq_base, freq_scale,
+                    n_rot, rope_type, n_ctx_orig, freq_base, freq_scale,
                     ext_factor, attn_factor, beta_fast, beta_slow
                 );
                 cb(Qcur, "Qcur", il);
 
                 struct ggml_tensor * Kcur = ggml_rope_ext(
                     ctx0, ggml_reshape_3d(ctx0, tmpk, n_embd_head, n_head_kv, n_tokens), inp_pos, nullptr,
-                    n_rot, rope_type, 0, n_orig_ctx, freq_base, freq_scale,
+                    n_rot, rope_type, n_ctx_orig, freq_base, freq_scale,
                     ext_factor, attn_factor, beta_fast, beta_slow
                 );
                 cb(Kcur, "Kcur", il);
@@ -9965,14 +9965,14 @@ struct llm_build_context {
 
                 Qcur = ggml_rope_ext(
                     ctx0, ggml_reshape_3d(ctx0, Qcur, n_embd_head, n_head,    n_tokens), inp_pos, nullptr,
-                    n_rot, rope_type, 0, n_orig_ctx, freq_base, freq_scale,
+                    n_rot, rope_type, n_ctx_orig, freq_base, freq_scale,
                     ext_factor, attn_factor, beta_fast, beta_slow
                 );
                 cb(Qcur, "Qcur", il);
 
                 Kcur = ggml_rope_ext(
                     ctx0, ggml_reshape_3d(ctx0, Kcur, n_embd_head, n_head_kv, n_tokens), inp_pos, nullptr,
-                    n_rot, rope_type, 0, n_orig_ctx, freq_base, freq_scale,
+                    n_rot, rope_type, n_ctx_orig, freq_base, freq_scale,
                     ext_factor, attn_factor, beta_fast, beta_slow
                 );
                 cb(Kcur, "Kcur", il);
@@ -10082,14 +10082,14 @@ struct llm_build_context {
 
                 Qcur = ggml_rope_ext(
                     ctx0, ggml_reshape_3d(ctx0, Qcur, n_embd_head, n_head,    n_tokens), inp_pos, nullptr,
-                    n_rot, rope_type, 0, n_orig_ctx, freq_base, freq_scale,
+                    n_rot, rope_type, n_ctx_orig, freq_base, freq_scale,
                     ext_factor, attn_factor, beta_fast, beta_slow
                 );
                 cb(Qcur, "Qcur", il);
 
                 Kcur = ggml_rope_ext(
                     ctx0, ggml_reshape_3d(ctx0, Kcur, n_embd_head, n_head_kv, n_tokens), inp_pos, nullptr,
-                    n_rot, rope_type, 0, n_orig_ctx, freq_base, freq_scale,
+                    n_rot, rope_type, n_ctx_orig, freq_base, freq_scale,
                     ext_factor, attn_factor, beta_fast, beta_slow
                 );
                 cb(Kcur, "Kcur", il);
@@ -10212,14 +10212,14 @@ struct llm_build_context {
 
                 Qcur = ggml_rope_ext(
                     ctx0, ggml_reshape_3d(ctx0, Qcur, n_embd_head, n_head,    n_tokens), inp_pos, nullptr,
-                    n_rot, rope_type, 0, n_orig_ctx, freq_base, freq_scale,
+                    n_rot, rope_type, n_ctx_orig, freq_base, freq_scale,
                     ext_factor, attn_factor, beta_fast, beta_slow
                 );
                 cb(Qcur, "Qcur", il);
 
                 Kcur = ggml_rope_ext(
                     ctx0, ggml_reshape_3d(ctx0, Kcur, n_embd_head, n_head_kv, n_tokens), inp_pos, nullptr,
-                    n_rot, rope_type, 0, n_orig_ctx, freq_base, freq_scale,
+                    n_rot, rope_type, n_ctx_orig, freq_base, freq_scale,
                     ext_factor, attn_factor, beta_fast, beta_slow
                 );
                 cb(Kcur, "Kcur", il);
@@ -10332,7 +10332,7 @@ struct llm_build_context {
 
                 Qcur = ggml_rope_ext(
                         ctx0, ggml_reshape_3d(ctx0, Qcur, n_embd_head_k, n_head,    n_tokens), inp_pos, nullptr,
-                        n_embd_head_k, rope_type, 0, n_orig_ctx, freq_base, freq_scale,
+                        n_embd_head_k, rope_type, n_ctx_orig, freq_base, freq_scale,
                         ext_factor, attn_factor, beta_fast, beta_slow);
                 cb(Qcur, "Qcur", il);
 
@@ -10341,7 +10341,7 @@ struct llm_build_context {
 
                 Kcur = ggml_rope_ext(
                         ctx0, ggml_reshape_3d(ctx0, Kcur, n_embd_head_k, n_head_kv, n_tokens), inp_pos, nullptr,
-                        n_embd_head_k, rope_type, 0, n_orig_ctx, freq_base, freq_scale,
+                        n_embd_head_k, rope_type, n_ctx_orig, freq_base, freq_scale,
                         ext_factor, attn_factor, beta_fast, beta_slow);
                 cb(Kcur, "Kcur", il);
 
@@ -10452,14 +10452,14 @@ struct llm_build_context {
 
                 Qcur = ggml_rope_ext(
                     ctx0, ggml_reshape_3d(ctx0, Qcur, n_embd_head, n_head, n_tokens), inp_pos, nullptr,
-                    n_rot, rope_type, 0, n_orig_ctx, freq_base, freq_scale,
+                    n_rot, rope_type, n_ctx_orig, freq_base, freq_scale,
                     ext_factor, attn_factor, beta_fast, beta_slow
                 );
                 cb(Qcur, "Qcur", il);
 
                 Kcur = ggml_rope_ext(
                     ctx0, ggml_reshape_3d(ctx0, Kcur, n_embd_head, n_head_kv, n_tokens), inp_pos, nullptr,
-                    n_rot, rope_type, 0, n_orig_ctx, freq_base, freq_scale,
+                    n_rot, rope_type, n_ctx_orig, freq_base, freq_scale,
                     ext_factor, attn_factor, beta_fast, beta_slow
                 );
                 cb(Kcur, "Kcur", il);
@@ -10742,14 +10742,14 @@ struct llm_build_context {
 
                 Qcur = ggml_rope_ext(
                     ctx0, ggml_reshape_3d(ctx0, Qcur, n_embd_head, n_head, n_tokens), inp_pos, nullptr,
-                    n_rot, rope_type, 0, n_orig_ctx, freq_base, freq_scale,
+                    n_rot, rope_type, n_ctx_orig, freq_base, freq_scale,
                     ext_factor, attn_factor, beta_fast, beta_slow
                 );
                 cb(Qcur, "Qcur", il);
 
                 Kcur = ggml_rope_ext(
                     ctx0, ggml_reshape_3d(ctx0, Kcur, n_embd_head, n_head_kv, n_tokens), inp_pos, nullptr,
-                    n_rot, rope_type, 0, n_orig_ctx, freq_base, freq_scale,
+                    n_rot, rope_type, n_ctx_orig, freq_base, freq_scale,
                     ext_factor, attn_factor, beta_fast, beta_slow
                 );
                 cb(Kcur, "Kcur", il);
@@ -10873,14 +10873,14 @@ struct llm_build_context {
 
                 Qcur = ggml_rope_ext(
                     ctx0, ggml_reshape_3d(ctx0, Qcur, n_embd_head, n_head, n_tokens), inp_pos, nullptr,
-                    n_rot, rope_type, 0, n_orig_ctx, freq_base, freq_scale,
+                    n_rot, rope_type, n_ctx_orig, freq_base, freq_scale,
                     ext_factor, attn_factor, beta_fast, beta_slow
                 );
                 cb(Qcur, "Qcur", il);
 
                 Kcur = ggml_rope_ext(
                     ctx0, ggml_reshape_3d(ctx0, Kcur, n_embd_head, n_head_kv, n_tokens), inp_pos, nullptr,
-                    n_rot, rope_type, 0, n_orig_ctx, freq_base, freq_scale,
+                    n_rot, rope_type, n_ctx_orig, freq_base, freq_scale,
                     ext_factor, attn_factor, beta_fast, beta_slow
                 );
                 cb(Kcur, "Kcur", il);
@@ -10987,14 +10987,14 @@ struct llm_build_context {
 
                 Qcur = ggml_rope_ext(
                     ctx0, ggml_reshape_3d(ctx0, Qcur, n_embd_head, n_head, n_tokens), inp_pos, nullptr,
-                    n_rot, rope_type, 0, n_orig_ctx, freq_base, freq_scale,
+                    n_rot, rope_type, n_ctx_orig, freq_base, freq_scale,
                     ext_factor, attn_factor, beta_fast, beta_slow
                 );
                 cb(Qcur, "Qcur", il);
 
                 Kcur = ggml_rope_ext(
                     ctx0, ggml_reshape_3d(ctx0, Kcur, n_embd_head, n_head_kv, n_tokens), inp_pos, nullptr,
-                    n_rot, rope_type, 0, n_orig_ctx, freq_base, freq_scale,
+                    n_rot, rope_type, n_ctx_orig, freq_base, freq_scale,
                     ext_factor, attn_factor, beta_fast, beta_slow
                 );
                 cb(Kcur, "Kcur", il);
@@ -11122,14 +11122,14 @@ struct llm_build_context {
 
                 Qcur = ggml_rope_ext(
                     ctx0, ggml_reshape_3d(ctx0, Qcur, n_embd_head, n_head, n_tokens), inp_pos, nullptr,
-                    n_rot, rope_type, 0, n_orig_ctx, freq_base, freq_scale,
+                    n_rot, rope_type, n_ctx_orig, freq_base, freq_scale,
                     ext_factor, attn_factor, beta_fast, beta_slow
                 );
                 cb(Qcur, "Qcur", il);
 
                 Kcur = ggml_rope_ext(
                     ctx0, ggml_reshape_3d(ctx0, Kcur, n_embd_head, n_head_kv, n_tokens), inp_pos, nullptr,
-                    n_rot, rope_type, 0, n_orig_ctx, freq_base, freq_scale,
+                    n_rot, rope_type, n_ctx_orig, freq_base, freq_scale,
                     ext_factor, attn_factor, beta_fast, beta_slow
                 );
                 cb(Kcur, "Kcur", il);
@@ -11339,7 +11339,7 @@ struct llm_build_context {
                 q_pe = ggml_cont(ctx0, q_pe); // TODO: the CUDA backend does not support non-contiguous RoPE
                 q_pe = ggml_rope_ext(
                     ctx0, q_pe, inp_pos, nullptr,
-                    n_rot, rope_type, 0, n_orig_ctx, freq_base, freq_scale,
+                    n_rot, rope_type, n_ctx_orig, freq_base, freq_scale,
                     ext_factor, attn_factor_scaled, beta_fast, beta_slow
                 );
                 cb(q_pe, "q_pe", il);
@@ -11348,7 +11348,7 @@ struct llm_build_context {
                 k_pe = ggml_cont(ctx0, k_pe); // TODO: the CUDA backend does not support non-contiguous RoPE
                 k_pe = ggml_rope_ext(
                     ctx0, k_pe, inp_pos, nullptr,
-                    n_rot, rope_type, 0, n_orig_ctx, freq_base, freq_scale,
+                    n_rot, rope_type, n_ctx_orig, freq_base, freq_scale,
                     ext_factor, attn_factor_scaled, beta_fast, beta_slow
                 );
                 cb(k_pe, "k_pe", il);
@@ -16072,8 +16072,8 @@ struct llama_context * llama_new_context_with_model(
 
     cparams.n_ubatch         = std::min(cparams.n_batch, params.n_ubatch == 0 ? params.n_batch : params.n_ubatch);
 
-    cparams.n_yarn_orig_ctx  = params.yarn_orig_ctx    != 0 ? params.yarn_orig_ctx    :
-                               hparams.n_yarn_orig_ctx != 0 ? hparams.n_yarn_orig_ctx :
+    cparams.n_ctx_orig_yarn  = params.yarn_orig_ctx    != 0 ? params.yarn_orig_ctx    :
+                               hparams.n_ctx_orig_yarn != 0 ? hparams.n_ctx_orig_yarn :
                                                               hparams.n_ctx_train;
 
     cparams.cb_eval           = params.cb_eval;
