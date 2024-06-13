@@ -2871,6 +2871,7 @@ def main() -> None:
         logger.info("Set model parameters")
         model_instance.set_gguf_parameters()
         model_instance.fallback_pre = args.fallback_pre
+        model_instance.vocab_pre = args.vocab_pre
 
         logger.info("Set model tokenizer")
         model_instance.set_vocab()
