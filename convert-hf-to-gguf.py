@@ -975,7 +975,11 @@ class XverseModel(Model):
         from transformers import AutoTokenizer
         tokenizer = AutoTokenizer.from_pretrained(dir_model)
         vocab_size = hparams.get("vocab_size", len(tokenizer.vocab))
-        assert max(tokenizer.vocab.values()) < vocab_size
+        # Since we are checking the maximum index, we need to ensure it's strictly less than vocab_size,
+        # because vocab_size is the count of items, and indexes start at 0.
+        max_vocab_index = max(tokenizer.get_vocab().values())
+        if max_vocab_index >= vocab_size:
+            raise ValueError("Vocabulary size exceeds expected maximum size.")
 
         reverse_vocab: dict[int, str] = {id_: encoded_tok for encoded_tok, id_ in tokenizer.vocab.items()}
         added_vocab = tokenizer.get_added_vocab()
@@ -1640,6 +1644,12 @@ class Qwen2MoeModel(Model):
         super().set_gguf_parameters()
         if (n_experts := self.hparams.get("num_experts")) is not None:
             self.gguf_writer.add_expert_count(n_experts)
+        if (moe_intermediate_size := self.hparams.get("moe_intermediate_size")) is not None:
+            self.gguf_writer.add_expert_feed_forward_length(moe_intermediate_size)
+            logger.info(f"gguf: expert feed forward length = {moe_intermediate_size}")
+        if (shared_expert_intermediate_size := self.hparams.get('shared_expert_intermediate_size')) is not None:
+            self.gguf_writer.add_expert_shared_feed_forward_length(shared_expert_intermediate_size)
+            logger.info(f"gguf: expert shared feed forward length = {shared_expert_intermediate_size}")
 
     _experts: list[dict[str, Tensor]] | None = None
 
