@@ -3598,7 +3598,7 @@ def main() -> None:
         sys.exit(1)
 
     if args.outfile is not None:
-        fname_out = args.outfile.with_suffix('.{FTYPE}.gguf')
+        fname_out = args.outfile
     else:
         # output in the same directory as the model by default
         fname_out = dir_model / 'ggml-model-{ftype}.gguf'
@@ -3640,17 +3640,9 @@ def main() -> None:
             out_path = f"{model_instance.fname_out.parent}{os.sep}" if is_split else model_instance.fname_out
             logger.info(f"Model successfully exported to {out_path}")
 
-        if args.outfile:
-            args.outfile.unlink(missing_ok=True)
-            args.outfile.hardlink_to(model_instance.fname_out)
-
         fname_out = model_instance.fname_out.with_suffix(fname_out.suffix)
         model_instance.fname_out.rename(fname_out)
         logger.info(f"Model renamed to {fname_out}")
-
-        if args.outfile:
-            logger.info(f"Model linked to {args.outfile}")
-
 
 if __name__ == '__main__':
     main()
