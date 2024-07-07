@@ -42,6 +42,10 @@ endif()
 
 option(BUILD_SHARED_LIBS "build shared libraries" ${BUILD_SHARED_LIBS_DEFAULT})
 
+if (WIN32)
+    add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
+endif()
+
 #
 # option list
 #
@@ -158,7 +162,7 @@ install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/gguf-py/gguf
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/python)
 
 install(
-    FILES convert-hf-to-gguf.py convert-hf-to-gguf-update.py
+    FILES convert_hf_to_gguf.py convert_hf_to_gguf_update.py
     PERMISSIONS
         OWNER_READ
         OWNER_WRITE
