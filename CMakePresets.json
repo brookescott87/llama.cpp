@@ -20,6 +20,7 @@
             "cacheVariables": {
                 "CMAKE_INSTALL_PREFIX": "C:/Apps/Toaster",
                 "CMAKE_BUILD_TYPE": "Release",
+                "BUILD_SHARED_LIBS": "FALSE",
                 "GGML_AVX2": "TRUE",
                 "GGML_CUDA": "TRUE"
             }
@@ -49,6 +50,7 @@
             "cacheVariables": {
                 "CMAKE_INSTALL_PREFIX": "/opt/toaster",
                 "CMAKE_BUILD_TYPE": "Release",
+                "BUILD_SHARED_LIBS": "FALSE",
                 "GGML_AVX2": "TRUE",
                 "GGML_CUDA": "TRUE"
             }
