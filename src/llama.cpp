@@ -2658,7 +2658,6 @@ struct llama_context {
     llama_context(const llama_model & model)
         : model(model)
         , sampling(llama_n_vocab(&model))
-        , grammar()
         , t_start_us(model.t_start_us)
         , t_load_us(model.t_load_us) {}
 
@@ -2676,7 +2675,6 @@ struct llama_context {
 
     struct llama_cparams        cparams;
     struct llama_sampling       sampling;
-    struct llama_grammar        grammar;
     struct llama_kv_cache       kv_self;
     struct llama_control_vector cvec;
 
@@ -4890,6 +4888,7 @@ static void llm_load_hparams(
             } break;
         case LLM_ARCH_PHI3:
             {
+                ml.get_key(LLM_KV_ATTENTION_SLIDING_WINDOW, hparams.n_swa);
                 ml.get_key(LLM_KV_ATTENTION_LAYERNORM_RMS_EPS, hparams.f_norm_rms_eps);
 
                 switch (hparams.n_layer) {
@@ -10753,7 +10752,7 @@ struct llm_build_context {
         struct ggml_tensor * inp_pos = build_inp_pos();
 
         // KQ_mask (mask for 1 head, it will be broadcasted to all heads)
-        struct ggml_tensor * KQ_mask = build_inp_KQ_mask();
+        struct ggml_tensor * KQ_mask_swa = build_inp_KQ_mask_swa();
 
         for (int il = 0; il < n_layer; ++il) {
             auto residual = inpL;
@@ -10811,7 +10810,7 @@ struct llm_build_context {
 
                 cur = llm_build_kv(ctx0, lctx, kv_self, gf,
                         model.layers[il].wo, model.layers[il].bo,
-                        Kcur, Vcur, Qcur, KQ_mask, n_tokens, kv_head, n_kv, 1.0f, cb, il);
+                        Kcur, Vcur, Qcur, KQ_mask_swa, n_tokens, kv_head, n_kv, 1.0f, cb, il);
             }
 
             if (il == n_layer - 1) {
@@ -14018,18 +14017,23 @@ static void llama_set_inputs(llama_context & lctx, const llama_batch & batch) {
         "causal attention is not supported by this model"
     );
 
-    if (lctx.inp_KQ_mask) {
+    if (lctx.inp_KQ_mask || lctx.inp_KQ_mask_swa) {
         // NOTE: hparams.causal_attn indicates the model is capable of generation and uses the kv cache.
         if (cparams.causal_attn && !lctx.is_encoding) {
             const int64_t n_kv     = kv_self.n;
             const int64_t n_tokens = batch.n_tokens;
 
-            GGML_ASSERT(ggml_backend_buffer_is_host(lctx.inp_KQ_mask->buffer));
 
-            float * data     = (float *) lctx.inp_KQ_mask->data;
+            float * data     = nullptr;
             float * data_swa = nullptr;
 
+            if (lctx.inp_KQ_mask) {
+                GGML_ASSERT(ggml_backend_buffer_is_host(lctx.inp_KQ_mask->buffer));
+                data = (float *) lctx.inp_KQ_mask->data;
+            }
+
             if (lctx.inp_KQ_mask_swa) {
+                GGML_ASSERT(ggml_backend_buffer_is_host(lctx.inp_KQ_mask_swa->buffer));
                 data_swa = (float *) lctx.inp_KQ_mask_swa->data;
             }
 
@@ -14047,12 +14051,15 @@ static void llama_set_inputs(llama_context & lctx, const llama_batch & batch) {
                             f = -INFINITY;
                         } else {
                             if (hparams.use_alibi) {
-                                f = -fabs(lctx.kv_self.cells[i].pos - pos);
+                                f = -std::abs(lctx.kv_self.cells[i].pos - pos);
                             } else {
                                 f = 0.0f;
                             }
                         }
-                        data[h*(n_kv*n_tokens) + j*n_kv + i] = f;
+
+                        if (data) {
+                            data[h*(n_kv*n_tokens) + j*n_kv + i] = f;
+                        }
 
                         // may need to cut off old tokens for sliding window
                         if (data_swa) {
@@ -14064,9 +14071,19 @@ static void llama_set_inputs(llama_context & lctx, const llama_batch & batch) {
                     }
                 }
 
-                for (int i = n_tokens; i < GGML_PAD(n_tokens, GGML_KQ_MASK_PAD); ++i) {
-                    for (int j = 0; j < n_kv; ++j) {
-                        data[h*(n_kv*n_tokens) + i*n_kv + j] = -INFINITY;
+                if (data) {
+                    for (int i = n_tokens; i < GGML_PAD(n_tokens, GGML_KQ_MASK_PAD); ++i) {
+                        for (int j = 0; j < n_kv; ++j) {
+                            data[h*(n_kv*n_tokens) + i*n_kv + j] = -INFINITY;
+                        }
+                    }
+                }
+
+                if (data_swa) {
+                    for (int i = n_tokens; i < GGML_PAD(n_tokens, GGML_KQ_MASK_PAD); ++i) {
+                        for (int j = 0; j < n_kv; ++j) {
+                            data_swa[h*(n_kv*n_tokens) + i*n_kv + j] = -INFINITY;
+                        }
                     }
                 }
             }
@@ -14088,7 +14105,7 @@ static void llama_set_inputs(llama_context & lctx, const llama_batch & batch) {
                         for (int s = 0; s < batch.n_seq_id[i]; ++s) {
                             if (batch.seq_id[i][s] == seq_id) {
                                 if (hparams.use_alibi) {
-                                    f = -fabs(batch.pos[i] - batch.pos[j]);
+                                    f = -std::abs(batch.pos[i] - batch.pos[j]);
                                 } else {
                                     f = 0.0f;
                                 }
@@ -16206,6 +16223,10 @@ int32_t llama_lora_adapter_remove(
     return -1;
 }
 
+void llama_lora_adapter_clear(struct llama_context * ctx) {
+    ctx->lora_adapters.clear();
+}
+
 void llama_lora_adapter_free(struct llama_lora_adapter * adapter) {
     delete adapter;
 }
@@ -16625,9 +16646,7 @@ struct llama_context * llama_new_context_with_model(
             for (int i = 0; i < ggml_backend_sycl_get_device_count(); ++i) {
                 ggml_backend_t backend = ggml_backend_sycl_init(i);
                 if (backend == nullptr) {
-                    int id_list[GGML_SYCL_MAX_DEVICES];
-                    ggml_sycl_get_gpu_list(id_list, GGML_SYCL_MAX_DEVICES);
-                    LLAMA_LOG_ERROR("%s: failed to initialize SYCL%d (index %d) backend\n", __func__, id_list[i], i);
+                    LLAMA_LOG_ERROR("%s: failed to initialize SYCL%d for No.%d backend\n", __func__, i, i);
                     llama_free(ctx);
                     return nullptr;
                 }
@@ -16815,10 +16834,6 @@ const struct llama_model * llama_get_model(const struct llama_context * ctx) {
 
 const struct llama_vocab * llama_get_vocab(const struct llama_context * ctx) {
     return &ctx->model.vocab;
-}
-
-struct llama_grammar * llama_get_grammar(struct llama_context * ctx) {
-    return &ctx->grammar;
 }
 
 uint32_t llama_n_ctx(const struct llama_context * ctx) {
@@ -19131,11 +19146,7 @@ const char * llama_print_system_info(void) {
     s += "SSSE3 = "       + std::to_string(ggml_cpu_has_ssse3())       + " | ";
     s += "VSX = "         + std::to_string(ggml_cpu_has_vsx())         + " | ";
     s += "MATMUL_INT8 = " + std::to_string(ggml_cpu_has_matmul_int8()) + " | ";
-#ifdef GGML_USE_LLAMAFILE
-    s += "LLAMAFILE = 1 | ";
-#else
-    s += "LLAMAFILE = 0 | ";
-#endif
+    s += "LLAMAFILE = "   + std::to_string(ggml_cpu_has_llamafile())   + " | ";
 
     return s.c_str();
 }
