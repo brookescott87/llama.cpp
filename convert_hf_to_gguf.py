@@ -460,7 +460,10 @@ class Model:
     @staticmethod
     def load_hparams(dir_model: Path):
         with open(dir_model / "config.json", "r", encoding="utf-8") as f:
-            return json.load(f)
+            if hp := json.load(f):
+                if 'llm-config' in hp:
+                    hp = hp['llm-config']
+            return hp
 
     @classmethod
     def register(cls, *names: str) -> Callable[[AnyModel], AnyModel]:
