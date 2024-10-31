@@ -65,8 +65,8 @@ static void ggml_backend_blas_mul_mat(ggml_backend_blas_context * ctx, struct gg
 
     // convert src0 to float
     if (type != GGML_TYPE_F32) {
-        ggml_type_traits_t type_traits = ggml_internal_get_type_traits(type);
-        ggml_to_float_t const to_float = type_traits.to_float;
+        const auto * type_traits = ggml_get_type_traits(type);
+        ggml_to_float_t const to_float = type_traits->to_float;
 
         for (int64_t i03 = 0; i03 < ne03; i03++) {
             for (int64_t i02 = 0; i02 < ne02; i02++) {
@@ -224,12 +224,6 @@ static void ggml_backend_blas_free(ggml_backend_t backend) {
     delete backend;
 }
 
-static ggml_backend_buffer_type_t ggml_backend_blas_get_default_buffer_type(ggml_backend_t backend) {
-    return ggml_backend_cpu_buffer_type();
-
-    GGML_UNUSED(backend);
-}
-
 static enum ggml_status ggml_backend_blas_graph_compute(ggml_backend_t backend, struct ggml_cgraph * cgraph) {
     ggml_backend_blas_context * ctx = (ggml_backend_blas_context *)backend->context;
 
@@ -265,7 +259,6 @@ static enum ggml_status ggml_backend_blas_graph_compute(ggml_backend_t backend, 
 static struct ggml_backend_i blas_backend_i = {
     /* .get_name                = */ ggml_backend_blas_get_name,
     /* .free                    = */ ggml_backend_blas_free,
-    /* .get_default_buffer_type = */ ggml_backend_blas_get_default_buffer_type,
     /* .set_tensor_async        = */ NULL,
     /* .get_tensor_async        = */ NULL,
     /* .cpy_tensor_async        = */ NULL,
@@ -275,9 +268,6 @@ static struct ggml_backend_i blas_backend_i = {
     /* .graph_plan_update       = */ NULL,
     /* .graph_plan_compute      = */ NULL,
     /* .graph_compute           = */ ggml_backend_blas_graph_compute,
-    /* .supports_op             = */ NULL,
-    /* .supports_buft           = */ NULL,
-    /* .offload_op              = */ NULL,
     /* .event_record            = */ NULL,
     /* .event_wait              = */ NULL,
 };
@@ -297,14 +287,14 @@ ggml_backend_t ggml_backend_blas_init(void) {
         /* .context   = */ ctx,
     };
 
-#if !defined(NDEBUG) && defined(OPENBLAS_VERSION) && defined(GGML_USE_OPENMP)
+#if defined(OPENBLAS_VERSION) && defined(GGML_USE_OPENMP)
     if (openblas_get_parallel() != OPENBLAS_OPENMP) {
-        fprintf(stderr, "%s: warning: ggml is using OpenMP, but OpenBLAS was compiled without OpenMP support\n", __func__);
+        GGML_LOG_DEBUG("%s: warning: ggml is using OpenMP, but OpenBLAS was compiled without OpenMP support\n", __func__);
     }
 #endif
 
-#if !defined(NDEBUG) && defined(BLIS_ENABLE_CBLAS) && defined(GGML_USE_OPENMP) && !defined(BLIS_ENABLE_OPENMP)
-    fprintf(stderr, "%s: warning: ggml is using OpenMP, but BLIS was compiled without OpenMP support\n", __func__);
+#if defined(BLIS_ENABLE_CBLAS) && defined(GGML_USE_OPENMP) && !defined(BLIS_ENABLE_OPENMP)
+    GGML_LOG_DEBUG("%s: warning: ggml is using OpenMP, but BLIS was compiled without OpenMP support\n", __func__);
 #endif
 
     return backend;
@@ -356,7 +346,7 @@ static void ggml_backend_blas_device_get_memory(ggml_backend_dev_t dev, size_t *
 }
 
 static enum ggml_backend_dev_type ggml_backend_blas_device_get_type(ggml_backend_dev_t dev) {
-    return GGML_BACKEND_DEVICE_TYPE_CPU;
+    return GGML_BACKEND_DEVICE_TYPE_ACCEL;
 
     GGML_UNUSED(dev);
 }
@@ -374,7 +364,7 @@ static void ggml_backend_blas_device_get_props(ggml_backend_dev_t dev, struct gg
     };
 }
 
-static ggml_backend_t ggml_backend_blas_device_init(ggml_backend_dev_t dev, const char * params) {
+static ggml_backend_t ggml_backend_blas_device_init_backend(ggml_backend_dev_t dev, const char * params) {
     return ggml_backend_blas_init();
 
     GGML_UNUSED(dev);
@@ -387,7 +377,7 @@ static ggml_backend_buffer_type_t ggml_backend_blas_device_get_buffer_type(ggml_
     GGML_UNUSED(dev);
 }
 
-static ggml_backend_buffer_t ggml_backend_blas_device_buffer_from_ptr(ggml_backend_dev_t dev, void * ptr, size_t size, size_t max_tensor_size) {
+static ggml_backend_buffer_t ggml_backend_blas_device_buffer_from_host_ptr(ggml_backend_dev_t dev, void * ptr, size_t size, size_t max_tensor_size) {
     return ggml_backend_cpu_buffer_from_ptr(ptr, size);
 
     GGML_UNUSED(dev);
@@ -420,19 +410,21 @@ static bool ggml_backend_blas_device_supports_op(ggml_backend_dev_t dev, const s
             // TODO: find the optimal value
             const int64_t min_batch = 32;
 
-            return (ggml_is_contiguous(src0) &&
-                    ggml_is_contiguous(src1) &&
-                    src1->type == GGML_TYPE_F32 &&
-                    (ne0 >= min_batch && ne1 >= min_batch && ne10 >= min_batch));
+            return ggml_is_contiguous(src0) &&
+                   ggml_is_contiguous(src1) &&
+                   src1->type == GGML_TYPE_F32 &&
+                   (ne0 >= min_batch && ne1 >= min_batch && ne10 >= min_batch) &&
+                   (src0->type == GGML_TYPE_F32 || ggml_get_type_traits(src0->type)->to_float != NULL);
         }
 
         case GGML_OP_OUT_PROD:
-            return (op->src[0]->type == GGML_TYPE_F32 &&
-                    op->src[1]->type == GGML_TYPE_F32 &&
-                    ggml_is_matrix(src0) &&
-                    ggml_is_matrix(src1) &&
-                    ggml_is_contiguous(src0) &&
-                    (ggml_is_contiguous(src1) || ggml_is_transposed(src1)));
+            return op->src[0]->type == GGML_TYPE_F32 &&
+                   op->src[1]->type == GGML_TYPE_F32 &&
+                   ggml_is_matrix(src0) &&
+                   ggml_is_matrix(src1) &&
+                   ggml_is_contiguous(src0) &&
+                   (ggml_is_contiguous(src1) || ggml_is_transposed(src1)) &&
+                   (src0->type == GGML_TYPE_F32 || ggml_get_type_traits(src0->type)->to_float != NULL);
 
         default:
             return false;
@@ -454,10 +446,10 @@ static const struct ggml_backend_device_i ggml_backend_blas_device_i = {
     /* .get_memory           = */ ggml_backend_blas_device_get_memory,
     /* .get_type             = */ ggml_backend_blas_device_get_type,
     /* .get_props            = */ ggml_backend_blas_device_get_props,
-    /* .init_backend         = */ ggml_backend_blas_device_init,
+    /* .init_backend         = */ ggml_backend_blas_device_init_backend,
     /* .get_buffer_type      = */ ggml_backend_blas_device_get_buffer_type,
     /* .get_host_buffer_type = */ NULL,
-    /* .buffer_from_host_ptr = */ ggml_backend_blas_device_buffer_from_ptr,
+    /* .buffer_from_host_ptr = */ ggml_backend_blas_device_buffer_from_host_ptr,
     /* .supports_op          = */ ggml_backend_blas_device_supports_op,
     /* .supports_buft        = */ ggml_backend_blas_device_supports_buft,
     /* .offload_op           = */ NULL,
