@@ -74,7 +74,8 @@
             "binaryDir": "build/default",
             "cacheVariables": {
                 "GGML_AVX512": "TRUE",
-                "GGML_AVX512_VNNI": "TRUE"
+                "GGML_AVX512_VNNI": "TRUE",
+                "GGML_AVX512_BF16": "TRUE"
             }
         },
         {
@@ -137,7 +138,7 @@
         {
             "name": "cloud",
             "configurePreset": "cloud",
-            "jobs": 16,
+            "jobs": 96,
             "inherits" : "linux"
         },
         {
