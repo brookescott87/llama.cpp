@@ -1,254 +1,81 @@
 {
-    "version": 8,
-    "cmakeMinimumRequired": {
-        "major": 3,
-        "minor": 28,
-        "patch": 0
+  "version": 4,
+  "configurePresets": [
+    {
+        "name":  "base",
+        "hidden": true,
+        "generator":   "Ninja",
+        "binaryDir":   "${sourceDir}/build-${presetName}",
+        "cacheVariables": {
+            "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+            "CMAKE_INSTALL_RPATH": "$ORIGIN;$ORIGIN/.."
+        }
     },
-    "configurePresets": [
-        {
-            "name": "windows",
-            "displayName": "Toaster (Windows)",
-            "generator": "Visual Studio 17 2022",
-            "description": "Default Configuration for the Quantization Toaster",
-            "binaryDir": "build/default",
-            "condition": {
-                "type": "equals",
-                "lhs": "${hostSystemName}",
-                "rhs": "Windows"
-            },
-            "cacheVariables": {
-                "CMAKE_INSTALL_PREFIX": "C:/Apps/Toaster",
-                "CMAKE_BUILD_TYPE": "Release",
-                "BUILD_SHARED_LIBS": "FALSE",
-                "GGML_AVX2": "TRUE",
-                "GGML_CUDA": "TRUE"
-            }
-        },
-        {
-            "name": "windows-debug",
-            "displayName": "Toaster (Windows Debug)",
-            "inherits": "windows",
-            "description": "Debugging Configuration for the Quantization Toaster",
-            "binaryDir": "build/debug",
-            "cacheVariables": {
-                "CMAKE_INSTALL_PREFIX": "C:/Apps/ToasterDbg",
-                "CMAKE_BUILD_TYPE": "Debug"
-            }
-        },
-        {
-            "name": "linux",
-            "displayName": "Toaster (Linux)",
-            "generator": "Unix Makefiles",
-            "binaryDir": "build/default",
-            "description": "Default Configuration for the Quantization Toaster on Linux",
-            "condition": {
-                "type": "equals",
-                "lhs": "${hostSystemName}",
-                "rhs": "Linux"
-            },
-            "cacheVariables": {
-                "CMAKE_INSTALL_PREFIX": "/opt/toaster",
-                "CMAKE_BUILD_TYPE": "Release",
-                "BUILD_SHARED_LIBS": "FALSE",
-                "GGML_AVX2": "TRUE",
-                "GGML_CUDA": "TRUE"
-            }
-        },
-        {
-            "name": "linux-debug",
-            "displayName": "Toaster (Linux Debug)",
-            "inherits": "linux",
-            "description": "Debugging Configuration for the Quantization Toaster on Linux",
-            "binaryDir": "build/debug",
-            "cacheVariables": {
-                "CMAKE_INSTALL_PREFIX": "/opt/toaster-debug",
-                "CMAKE_BUILD_TYPE": "Debug"
-            }
-        },
-        {
-            "name": "cloud",
-            "displayName": "Toaster (Cloud)",
-            "inherits": "linux",
-            "description": "Default Configuration for the Quantization Toaster on Cloud",
-            "binaryDir": "build/default",
-            "cacheVariables": {
-                "GGML_AVX512": "TRUE",
-                "GGML_AVX512_VNNI": "TRUE"
-            }
-        },
-        {
-            "name": "cloud-nocuda",
-            "displayName": "Toaster (Cloud, No CUDA)",
-            "inherits": "cloud",
-            "description": "Default Configuration for the Quantization Toaster on Cloud",
-            "binaryDir": "build/nocuda",
-            "cacheVariables": {
-                "GGML_CUDA": "FALSE",
-                "CMAKE_INSTALL_PREFIX": "/opt/toaster-nocuda"
-            }
-        },
-        {
-            "name": "cloud-debug",
-            "displayName": "Toaster (Cloud Debug)",
-            "inherits": "cloud",
-            "description": "Debugging Configuration for the Quantization Toaster on Cloud",
-            "binaryDir": "build/debug",
-            "cacheVariables": {
-                "CMAKE_INSTALL_PREFIX": "/opt/toaster-debug",
-                "CMAKE_BUILD_TYPE": "Debug"
-            }
+    {
+        "name": "sycl-base",
+        "hidden": true,
+        "generator": "Ninja",
+        "binaryDir": "${sourceDir}/build-${presetName}",
+        "cacheVariables": {
+            "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+            "CMAKE_CXX_COMPILER": "icx",
+            "CMAKE_C_COMPILER": "cl",
+            "GGML_SYCL": "ON",
+            "CMAKE_INSTALL_RPATH": "$ORIGIN;$ORIGIN/.."
         }
-    ],
-    "buildPresets": [
-        {
-            "name": "windows",
-            "configurePreset": "windows",
-            "targets": [ "all", "install" ],
-            "cleanFirst": true,
-            "condition": {
-                "type": "equals",
-                "lhs": "${hostSystemName}",
-                "rhs": "Windows"
-            }
-        },
-        {
-            "name": "windows-debug",
-            "configurePreset": "windows-debug",
-            "inherits": "windows"
-        },
-        {
-            "name": "linux",
-            "configurePreset": "linux",
-            "targets": [ "all", "install" ],
-            "cleanFirst": true,
-            "jobs": 4,
-            "condition": {
-                "type": "equals",
-                "lhs": "${hostSystemName}",
-                "rhs": "Linux"
-            }
-        },
-        {
-            "name": "linux-debug",
-            "configurePreset": "linux-debug",
-            "inherits": "linux"
-        },
-        {
-            "name": "cloud",
-            "configurePreset": "cloud",
-            "jobs": 16,
-            "inherits" : "linux"
-        },
-        {
-            "name": "cloud-nocuda",
-            "configurePreset": "cloud-nocuda",
-            "inherits" : "cloud"
-        },
-        {
-            "name": "cloud-debug",
-            "configurePreset": "cloud-debug",
-            "inherits": "cloud"
+    },
+    { "name": "debug",   "hidden": true, "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" } },
+    { "name": "release", "hidden": true, "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" } },
+    { "name": "reldbg",  "hidden": true, "cacheVariables": { "CMAKE_BUILD_TYPE": "RelWithDebInfo" } },
+    { "name": "static",  "hidden": true, "cacheVariables": { "GGML_STATIC": "ON" } },
+    { "name": "sycl_f16",  "hidden": true, "cacheVariables": { "GGML_SYCL_F16": "ON" } },
+
+    {
+        "name": "arm64-windows-msvc", "hidden": true,
+        "architecture": { "value": "arm64",    "strategy": "external" },
+        "toolset":      { "value": "host=x64", "strategy": "external" },
+        "cacheVariables": {
+            "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/cmake/arm64-windows-msvc.cmake"
         }
-    ],
-    "workflowPresets": [
-        {
-            "name": "windows",
-            "displayName": "Windows workflow",
-            "steps": [
-                {
-                    "type": "configure",
-                    "name": "windows"
-                },
-                {
-                    "type": "build",
-                    "name": "windows"
-                }
-            ]
-        },
-        {
-            "name": "windows-debug",
-            "displayName": "Windows debug workflow",
-            "steps": [
-                {
-                    "type": "configure",
-                    "name": "windows-debug"
-                },
-                {
-                    "type": "build",
-                    "name": "windows-debug"
-                }
-            ]
-        },
-        {
-            "name": "linux",
-            "displayName": "Linux workflow",
-            "steps": [
-                {
-                    "type": "configure",
-                    "name": "linux"
-                },
-                {
-                    "type": "build",
-                    "name": "linux"
-                }
-            ]
-        },
-        {
-            "name": "linux-debug",
-            "displayName": "Linux debug workflow",
-            "steps": [
-                {
-                    "type": "configure",
-                    "name": "linux-debug"
-                },
-                {
-                    "type": "build",
-                    "name": "linux-debug"
-                }
-            ]
-        },
-        {
-            "name": "cloud",
-            "displayName": "Cloud workflow",
-            "steps": [
-                {
-                    "type": "configure",
-                    "name": "cloud"
-                },
-                {
-                    "type": "build",
-                    "name": "cloud"
-                }
-            ]
-        },
-        {
-            "name": "cloud-debug",
-            "displayName": "Cloud debug workflow",
-            "steps": [
-                {
-                    "type": "configure",
-                    "name": "cloud-debug"
-                },
-                {
-                    "type": "build",
-                    "name": "cloud-debug"
-                }
-            ]
-        },
-        {
-            "name": "cloud-nocuda",
-            "displayName": "Cloud no-CUDA workflow",
-            "steps": [
-                {
-                    "type": "configure",
-                    "name": "cloud-nocuda"
-                },
-                {
-                    "type": "build",
-                    "name": "cloud-nocuda"
-                }
-            ]
+    },
+
+    {
+        "name": "arm64-windows-llvm", "hidden": true,
+        "architecture": { "value": "arm64",    "strategy": "external" },
+        "toolset":      { "value": "host=x64", "strategy": "external" },
+        "cacheVariables": {
+            "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/cmake/arm64-windows-llvm.cmake"
         }
-    ]
+    },
+
+    {
+        "name": "arm64-apple-clang", "hidden": true,
+        "architecture": { "value": "arm64",    "strategy": "external" },
+        "toolset":      { "value": "host=x64", "strategy": "external" },
+        "cacheVariables": {
+            "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/cmake/arm64-apple-clang.cmake"
+        }
+    },
+
+    { "name": "arm64-windows-llvm-debug"  , "inherits": [ "base", "arm64-windows-llvm",  "debug"   ] },
+    { "name": "arm64-windows-llvm-release", "inherits": [ "base", "arm64-windows-llvm",  "reldbg" ] },
+    { "name": "arm64-windows-llvm+static-release", "inherits": [ "base", "arm64-windows-llvm",  "reldbg", "static" ] },
+
+    { "name": "arm64-apple-clang-debug"  , "inherits": [ "base", "arm64-apple-clang",  "debug"   ] },
+    { "name": "arm64-apple-clang-release"  , "inherits": [ "base", "arm64-apple-clang",  "reldbg"   ] },
+    { "name": "arm64-apple-clang+static-release"  , "inherits": [ "base", "arm64-apple-clang",  "reldbg", "static" ] },
+
+    { "name": "arm64-windows-msvc-debug"  , "inherits": [ "base", "arm64-windows-msvc",  "debug"   ] },
+    { "name": "arm64-windows-msvc-release", "inherits": [ "base", "arm64-windows-msvc",  "reldbg" ] },
+    { "name": "arm64-windows-msvc+static-release", "inherits": [ "base", "arm64-windows-msvc",  "reldbg", "static" ] },
+
+    { "name": "x64-windows-msvc-debug"  , "inherits": [ "base", "debug"   ] },
+    { "name": "x64-windows-msvc-release", "inherits": [ "base", "reldbg" ] },
+    { "name": "x64-windows-msvc+static-release", "inherits": [ "base", "reldbg", "static" ] },
+
+    { "name": "x64-windows-sycl-debug"  , "inherits": [ "sycl-base", "debug"   ] },
+    { "name": "x64-windows-sycl-debug-f16", "inherits": [ "sycl-base", "debug", "sycl_f16" ] },
+    { "name": "x64-windows-sycl-release", "inherits": [ "sycl-base", "release" ] },
+    { "name": "x64-windows-sycl-release-f16", "inherits": [ "sycl-base", "release", "sycl_f16" ] }
+  ]
 }
