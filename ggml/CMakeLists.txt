@@ -164,6 +164,8 @@ option(GGML_SYCL                            "ggml: use SYCL"                    
 option(GGML_SYCL_F16                        "ggml: use 16 bit floats for sycl calculations"   OFF)
 set   (GGML_SYCL_TARGET "INTEL" CACHE STRING
                                             "ggml: sycl target device")
+set   (GGML_SYCL_DEVICE_ARCH "" CACHE STRING
+                                            "ggml: sycl device architecture")
 
 # extra artifacts
 option(GGML_BUILD_TESTS    "ggml: build tests"    ${GGML_STANDALONE})
@@ -229,12 +231,8 @@ set_target_properties(ggml PROPERTIES PUBLIC_HEADER "${GGML_PUBLIC_HEADERS}")
 #if (GGML_METAL)
 #    set_target_properties(ggml PROPERTIES RESOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/ggml-metal.metal")
 #endif()
-install(TARGETS ggml PUBLIC_HEADER)
-
-if (BUILD_SHARED_LIBS)
-    install(TARGETS ggml      LIBRARY)
-    install(TARGETS ggml-base LIBRARY)
-endif()
+install(TARGETS ggml LIBRARY PUBLIC_HEADER)
+install(TARGETS ggml-base LIBRARY)
 
 # FIXME: this should be done in the backend cmake files
 if (GGML_METAL)
