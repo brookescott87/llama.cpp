@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
+git remote update
 headrev=$(git describe --tags upstream/master)
 headtag=${headrev%%-*}
 if [ $headtag != $headrev ]; then
