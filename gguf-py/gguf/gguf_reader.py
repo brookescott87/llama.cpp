@@ -86,8 +86,8 @@ class GGUFReader:
         GGUFValueType.BOOL:    np.bool_,
     }
 
-    def __init__(self, path: os.PathLike[str] | str, mode: Literal['r', 'r+', 'c'] = 'r'):
-        self.data = np.memmap(path, mode = mode)
+    def __init__(self, path: os.PathLike[str] | str, mode: Literal['r', 'r+', 'c'] = 'r', np_memmap: type = np.memmap):
+        self.data = np_memmap(path, mode = mode)
         offs = 0
 
         # Check for GGUF magic
