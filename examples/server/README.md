@@ -188,12 +188,6 @@ services:
 
 `llama-server` is built alongside everything else from the root of the project
 
-- Using `make`:
-
-  ```bash
-  make llama-server
-  ```
-
 - Using `CMake`:
 
   ```bash
@@ -206,15 +200,6 @@ services:
 ## Build with SSL
 
 `llama-server` can also be built with SSL support using OpenSSL 3
-
-- Using `make`:
-
-  ```bash
-  # NOTE: For non-system openssl, use the following:
-  #   CXXFLAGS="-I /path/to/openssl/include"
-  #   LDFLAGS="-L /path/to/openssl/lib"
-  make LLAMA_SERVER_SSL=true llama-server
-  ```
 
 - Using `CMake`:
 
@@ -415,6 +400,8 @@ node index.js
     `cache_prompt`: Re-use KV cache from a previous request if possible. This way the common prefix does not have to be re-processed, only the suffix that differs between the requests. Because (depending on the backend) the logits are **not** guaranteed to be bit-for-bit identical for different batch sizes (prompt processing vs. token generation) enabling this option can cause nondeterministic results. Default: `true`
 
     `samplers`: The order the samplers should be applied in. An array of strings representing sampler type names. If a sampler is not set, it will not be used. If a sampler is specified more than once, it will be applied multiple times. Default: `["dry", "top_k", "typ_p", "top_p", "min_p", "xtc", "temperature"]` - these are all the available values.
+
+    `timings_per_token`: Include prompt processing and text generation speed information in each response.  Default: `false`
 
 **Response format**
 
