@@ -315,7 +315,7 @@ struct split_strategy {
     }
 
     void print_info() {
-        printf("n_split: %u\n", static_cast<unsigned>(ctx_outs.size()));
+        printf("n_split: %zu\n", ctx_outs.size());
         int i_split = 0;
         for (auto & ctx_out : ctx_outs) {
             // re-calculate the real gguf size for each split (= metadata size + total size of all tensors)
@@ -324,7 +324,7 @@ struct split_strategy {
                 struct ggml_tensor * t = ggml_get_tensor(ctx_meta, gguf_get_tensor_name(ctx_out, i));
                 split_size += ggml_nbytes(t);
             }
-            printf("split %05d: n_tensors = %d, total_size = %llu\n", i_split + 1, gguf_get_n_tensors(ctx_out), split_size);
+            printf("split %05d: n_tensors = %d, total_size = %zu\n", i_split + 1, gguf_get_n_tensors(ctx_out), split_size);
             total_size += split_size;
             i_split++;
         }
