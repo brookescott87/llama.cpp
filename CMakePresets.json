@@ -99,6 +99,27 @@
                 "CMAKE_INSTALL_PREFIX": "/opt/toaster-debug",
                 "CMAKE_BUILD_TYPE": "Debug"
             }
+        },
+        {
+            "name": "nocloud",
+            "displayName": "Toaster (No Cloud)",
+            "inherits": "linux",
+            "description": "Default Configuration for the Quantization Toaster without Cloud",
+            "binaryDir": "build/nocloud",
+            "cacheVariables": {
+                "GGML_CUDA": "FALSE"
+            }
+        },
+        {
+            "name": "nocloud-debug",
+            "displayName": "Toaster (No Cloud Debug)",
+            "inherits": "nocloud",
+            "description": "Debugging Configuration for the Quantization Toaster without Cloud",
+            "binaryDir": "build/nocloud-debug",
+            "cacheVariables": {
+                "CMAKE_INSTALL_PREFIX": "/opt/toaster-debug",
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
         }
     ],
     "buildPresets": [
@@ -150,6 +171,17 @@
             "name": "cloud-debug",
             "configurePreset": "cloud-debug",
             "inherits": "cloud"
+        },
+        {
+            "name": "nocloud",
+            "configurePreset": "nocloud",
+            "jobs": 32,
+            "inherits" : "linux"
+        },
+        {
+            "name": "nocloud-debug",
+            "configurePreset": "nocloud-debug",
+            "inherits": "nocloud"
         }
     ],
     "workflowPresets": [
@@ -248,6 +280,34 @@
                 {
                     "type": "build",
                     "name": "cloud-nocuda"
+                }
+            ]
+        },
+        {
+            "name": "nocloud",
+            "displayName": "Non-cloud workflow",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "nocloud"
+                },
+                {
+                    "type": "build",
+                    "name": "nocloud"
+                }
+            ]
+        },
+        {
+            "name": "nocloud-debug",
+            "displayName": "Non-cloud debug workflow",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "nocloud-debug"
+                },
+                {
+                    "type": "build",
+                    "name": "nocloud-debug"
                 }
             ]
         }
