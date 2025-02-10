@@ -1,16 +1,18 @@
+#include "ggml.h"
+#include "gguf.h"
 #include "llama.h"
 #include "common.h"
 
 #include <algorithm>
+#include <cinttypes>
+#include <climits>
+#include <cstdio>
 #include <cstdlib>
+#include <stdexcept>
+#include <cstring>
 #include <fstream>
 #include <string>
 #include <vector>
-#include <climits>
-
-#include <cstdio>
-#include <cstring>
-#include <stdexcept>
 
 #if defined(_WIN32)
     #include <windows.h>
@@ -323,7 +325,7 @@ struct split_strategy {
                 struct ggml_tensor * t = ggml_get_tensor(ctx_meta, gguf_get_tensor_name(ctx_out, i));
                 split_size += ggml_nbytes(t);
             }
-            printf("split %05d: n_tensors = %d, total_size = %zu\n", i_split + 1, gguf_get_n_tensors(ctx_out), split_size);
+            printf("split %05d: n_tensors = %" PRIi64 ", total_size = %zu\n", i_split + 1, gguf_get_n_tensors(ctx_out), split_size);
             total_size += split_size;
             i_split++;
         }
