@@ -6,6 +6,7 @@
     - Verify that the perplexity and the performance are not affected negatively by your changes (use `llama-perplexity` and `llama-bench`)
     - If you modified the `ggml` source, run the `test-backend-ops` tool to check whether different backend implementations of the `ggml` operators produce consistent results (this requires access to at least two different `ggml` backends)
     - If you modified a `ggml` operator or added a new one, add the corresponding test cases to `test-backend-ops`
+- Create separate PRs for each feature or fix. Avoid combining unrelated changes in a single PR
 - Consider allowing write access to your branch for faster reviews, as reviewers can push commits directly
 - If your PR becomes stale, don't hesitate to ping the maintainers in the comments
 
@@ -38,7 +39,7 @@
 
     _(NOTE: this guideline is yet to be applied to the `llama.cpp` codebase. New code should follow this guideline.)_
 
-- Try to follow the existing patterns in the code (indentation, spaces, etc.). In case of doubt use `clang-format` to format the added code
+- Try to follow the existing patterns in the code (indentation, spaces, etc.). In case of doubt use `clang-format` (from clang-tools v15+) to format the added code
 - For anything not covered in the current guidelines, refer to the [C++ Core Guidelines](https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines)
 - Tensors store data in row-major order. We refer to dimension 0 as columns, 1 as rows, 2 as matrices
 - Matrix multiplication is unconventional: [`C = ggml_mul_mat(ctx, A, B)`](https://github.com/ggml-org/llama.cpp/blob/880e352277fc017df4d5794f0c21c44e1eae2b84/ggml.h#L1058-L1064) means $C^T = A B^T \Leftrightarrow C = B A^T.$

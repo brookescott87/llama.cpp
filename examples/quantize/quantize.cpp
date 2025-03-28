@@ -8,6 +8,7 @@
 #include <unordered_map>
 #include <fstream>
 #include <cmath>
+#include <cctype>
 
 #if defined(_WIN32)
 #include <windows.h>
